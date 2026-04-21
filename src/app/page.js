@@ -438,7 +438,7 @@ export default function Page() {
           </div>
         </section>
       </main>
-      <Loader />
+      {/* <Loader /> */}
     </ReactLenis>
   );
 }
