@@ -1,0 +1,471 @@
+{
+  "asset": "skills-monolith.glb",
+  "units": "metres",
+  "up": "+Y",
+  "front": "+Z (faces the default camera)",
+  "root": "Skills_Monolith (base centre of the assembled boulder)",
+  "fragments": [
+    {
+      "name": "Monolith_Fragment_01",
+      "index": 1,
+      "role": "Frontend",
+      "triangles": 30521,
+      "volume": 8.6414,
+      "position": [
+        -1.3992,
+        2.1074,
+        -0.0104
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_02",
+      "index": 2,
+      "role": "Creative",
+      "triangles": 33975,
+      "volume": 9.1073,
+      "position": [
+        1.4839,
+        2.0671,
+        -0.0434
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_03",
+      "index": 3,
+      "role": "Animation",
+      "triangles": 14762,
+      "volume": 5.851,
+      "position": [
+        -0.3005,
+        0.9101,
+        0.0318
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_04",
+      "index": 4,
+      "role": "CrownLeft",
+      "triangles": 1357,
+      "volume": 0.742,
+      "position": [
+        -1.8165,
+        3.0733,
+        0.1672
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_05",
+      "index": 5,
+      "role": "CrownCentre",
+      "triangles": 1825,
+      "volume": 1.1167,
+      "position": [
+        0.3258,
+        3.1382,
+        0.3202
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_06",
+      "index": 6,
+      "role": "CrownRight",
+      "triangles": 1252,
+      "volume": 0.6887,
+      "position": [
+        2.2001,
+        3.0017,
+        0.1414
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_07",
+      "index": 7,
+      "role": "EndLeft",
+      "triangles": 3004,
+      "volume": 3.1475,
+      "position": [
+        -3.2481,
+        1.4651,
+        -0.0577
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_08",
+      "index": 8,
+      "role": "EndRight",
+      "triangles": 2634,
+      "volume": 2.2768,
+      "position": [
+        3.3698,
+        1.4199,
+        0.0166
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_09",
+      "index": 9,
+      "role": "FootLeft",
+      "triangles": 2142,
+      "volume": 1.4947,
+      "position": [
+        -2.0447,
+        0.8192,
+        0.1767
+      ]
+    },
+    {
+      "name": "Monolith_Fragment_10",
+      "index": 10,
+      "role": "FootRight",
+      "triangles": 3879,
+      "volume": 4.5376,
+      "position": [
+        1.8039,
+        0.7343,
+        -0.024
+      ]
+    }
+  ],
+  "carving": {
+    "note": "logos and names are cut into the stone as real geometry on three broken faces",
+    "logoDepth": 0.013,
+    "textDepth": 0.009
+  },
+  "atlas": {
+    "size": 4096,
+    "uvConvention": "glTF (origin top-left, v down) \u2014 the same UVs three.js reads from the GLB; load the mask images with flipY = false",
+    "front": {
+      "vMax": 0.46771,
+      "note": "the front of every fragment is one planar region at the top of the atlas: u\u2192+X, v\u2192-Y"
+    }
+  },
+  "textures": {
+    "masks": {
+      "file": "skills-monolith_masks.webp",
+      "R": "carved names + titles (1) and runic trim (0.55)",
+      "G": "glowing cracks + seam glow",
+      "B": "dust over the front (packed into the carvings)",
+      "A": "carved logos"
+    },
+    "ids": {
+      "file": "skills-monolith_ids.webp",
+      "R": "skill id \u00d7 32/255 (logo + its name)",
+      "G": "cluster id \u00d7 64/255 (inscribed face)",
+      "B": "fracture-face interiors (glow when pieces separate)",
+      "A": "inscribed face zones"
+    }
+  },
+  "clusters": [
+    {
+      "id": 1,
+      "key": "frontend",
+      "title": "FRONTEND",
+      "maskValue": 0.251,
+      "fragment": "Monolith_Fragment_01",
+      "faceNormal": [
+        0.0499,
+        0.0399,
+        0.998
+      ]
+    },
+    {
+      "id": 2,
+      "key": "creative",
+      "title": "CREATIVE DEVELOPMENT",
+      "maskValue": 0.502,
+      "fragment": "Monolith_Fragment_02",
+      "faceNormal": [
+        -0.0598,
+        0.0498,
+        0.997
+      ]
+    },
+    {
+      "id": 3,
+      "key": "animation",
+      "title": "ANIMATION",
+      "maskValue": 0.7529,
+      "fragment": "Monolith_Fragment_03",
+      "faceNormal": [
+        0.0349,
+        -0.0698,
+        0.997
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "id": 1,
+      "key": "nextjs",
+      "name": "Next.js",
+      "cluster": "frontend",
+      "maskValue": 0.1255,
+      "fragment": "Monolith_Fragment_01",
+      "logo": {
+        "source": "logos/nextjs.svg",
+        "center": [
+          -2.0337,
+          2.2162,
+          1.0716
+        ],
+        "uv": [
+          0.18854,
+          0.19305
+        ],
+        "size": [
+          0.4,
+          0.4
+        ]
+      },
+      "label": {
+        "center": [
+          -2.0331,
+          1.9265,
+          1.0831
+        ],
+        "uv": [
+          0.18862,
+          0.23442
+        ],
+        "size": [
+          0.282,
+          0.08399999999999999
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "key": "javascript",
+      "name": "JavaScript",
+      "cluster": "frontend",
+      "maskValue": 0.251,
+      "fragment": "Monolith_Fragment_01",
+      "logo": {
+        "source": "logos/javascript.svg",
+        "center": [
+          -1.3146,
+          2.2162,
+          1.0356
+        ],
+        "uv": [
+          0.2912,
+          0.19305
+        ],
+        "size": [
+          0.4,
+          0.4
+        ]
+      },
+      "label": {
+        "center": [
+          -1.314,
+          1.9265,
+          1.0472
+        ],
+        "uv": [
+          0.29128,
+          0.23442
+        ],
+        "size": [
+          0.4292,
+          0.08399999999999999
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "key": "tailwind",
+      "name": "Tailwind CSS",
+      "cluster": "frontend",
+      "maskValue": 0.3765,
+      "fragment": "Monolith_Fragment_01",
+      "logo": {
+        "source": "logos/tailwind.svg",
+        "center": [
+          -0.5955,
+          2.2162,
+          0.9996
+        ],
+        "uv": [
+          0.39387,
+          0.19305
+        ],
+        "size": [
+          0.64,
+          0.3805
+        ]
+      },
+      "label": {
+        "center": [
+          -0.5949,
+          1.9265,
+          1.0112
+        ],
+        "uv": [
+          0.39395,
+          0.23442
+        ],
+        "size": [
+          0.5285,
+          0.08399999999999999
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "key": "threejs",
+      "name": "Three.js",
+      "cluster": "creative",
+      "maskValue": 0.502,
+      "fragment": "Monolith_Fragment_02",
+      "logo": {
+        "source": "logos/threejs.svg",
+        "center": [
+          0.6372,
+          2.2092,
+          0.9693
+        ],
+        "uv": [
+          0.56987,
+          0.19405
+        ],
+        "size": [
+          0.4,
+          0.4
+        ]
+      },
+      "label": {
+        "center": [
+          0.6364,
+          1.9195,
+          0.9838
+        ],
+        "uv": [
+          0.56974,
+          0.2354
+        ],
+        "size": [
+          0.3299,
+          0.08399999999999999
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "key": "r3f",
+      "name": "React Three Fiber",
+      "cluster": "creative",
+      "maskValue": 0.6275,
+      "fragment": "Monolith_Fragment_02",
+      "logo": {
+        "source": "logos/r3f.svg",
+        "center": [
+          1.3959,
+          2.2092,
+          1.0149
+        ],
+        "uv": [
+          0.67818,
+          0.19405
+        ],
+        "size": [
+          0.448,
+          0.4
+        ]
+      },
+      "label": {
+        "center": [
+          1.395,
+          1.9195,
+          1.0293
+        ],
+        "uv": [
+          0.67805,
+          0.2354
+        ],
+        "size": [
+          0.7116,
+          0.08399999999999999
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "key": "webgl",
+      "name": "WebGL",
+      "cluster": "creative",
+      "maskValue": 0.7529,
+      "fragment": "Monolith_Fragment_02",
+      "logo": {
+        "source": "logos/webgl.svg",
+        "center": [
+          2.1545,
+          2.2092,
+          1.0604
+        ],
+        "uv": [
+          0.78648,
+          0.19405
+        ],
+        "size": [
+          0.64,
+          0.2816
+        ]
+      },
+      "label": {
+        "center": [
+          2.1536,
+          1.9195,
+          1.0748
+        ],
+        "uv": [
+          0.78636,
+          0.2354
+        ],
+        "size": [
+          0.2905,
+          0.08399999999999999
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "key": "gsap",
+      "name": "GSAP",
+      "cluster": "animation",
+      "maskValue": 0.8784,
+      "fragment": "Monolith_Fragment_03",
+      "logo": {
+        "source": "logos/gsap.svg",
+        "center": [
+          -0.3207,
+          1.0214,
+          1.1063
+        ],
+        "uv": [
+          0.4331,
+          0.36364
+        ],
+        "size": [
+          0.64,
+          0.2343
+        ]
+      },
+      "label": {
+        "center": [
+          -0.3214,
+          0.7321,
+          1.0861
+        ],
+        "uv": [
+          0.433,
+          0.40494
+        ],
+        "size": [
+          0.2266,
+          0.08399999999999999
+        ]
+      }
+    }
+  ]
+}
