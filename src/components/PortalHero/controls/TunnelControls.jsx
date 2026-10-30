@@ -14,6 +14,10 @@ function createSchema() {
   return {
     "Copy tunnel config": button(() => navigator.clipboard?.writeText(serialize(TUNNEL_SECTIONS))),
 
+    Camera: folder({
+      ...bind("VOID", "bank", { ...range(0, 30, 0.5), label: "lean into sway (°)" }),
+    }),
+
     Atmosphere: folder({
       ...bind("VOID", "nebula", { ...range(0, 2), label: "nebula" }),
       ...bind("VOID", "nebulaColor"),

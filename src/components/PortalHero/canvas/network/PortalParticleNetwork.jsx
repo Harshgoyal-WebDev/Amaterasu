@@ -298,8 +298,10 @@ export default function PortalParticleNetwork({ quality, interactive = true }) {
   useFrame((state, delta) => {
     // past the portal the web is behind the camera: stop drawing + simulating
     // it, but keep the cursor fluid (liquid glass) alive for the whole journey
-    group.current.visible = heroState.journey.hero;
-    system.update(state, delta, interactive, group.current.visible);
+    const j = heroState.journey;
+    group.current.visible = j.hero;
+    // the cursor fluid rests while the boulder's skills are being uncovered
+    system.update(state, delta, interactive && !(j.arrived && !j.broken), group.current.visible);
   });
 
   return (

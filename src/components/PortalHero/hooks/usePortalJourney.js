@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useLenis } from "lenis/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { JOURNEY, REDUCED_MOTION_QUERY, TUNNEL, WARP } from "../config";
-import { crossingProgress, knotS, pace, progressAtZ, sampleJourney } from "../canvas/journey/journeyPath";
+import { JOURNEY, REDUCED_MOTION_QUERY, WARP } from "../config";
+import { crossingProgress, marks, pathLength, progressAtZ, progressOf, sampleJourney } from "../canvas/journey/journeyPath";
 import { heroState } from "../state";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -21,53 +21,48 @@ const lerp = (a, b, t) => a + (b - a) * t;
 /* Stage markers in scroll progress, derived from the actual path. */
 const P_TUNNEL_IN = progressAtZ(-11.2); // camera inside the opening: the void starts to brighten
 const P_HERO_OUT = progressAtZ(-16.5); // back wall 2 m behind the camera: corridor hidden
-const P_VOID = P_HERO_OUT + 0.03; // lights / fog fully switched to the void
-const P_ROCKS_OUT = (() => {
-  // a little after the camera has passed the last rocks
-  const sLast = knotS(TUNNEL.toKnot) + 0.02;
-  let p = JOURNEY.stages.fall[0];
-  while (p < 1 && pace(p) < sLast) p += 0.002;
-  return Math.min(p + 0.04, 0.99);
-})();
-const P_BOULDER_IN = progressAtZ(-50); // fog still hides it here
+const P_VOID = P_HERO_OUT + 0.025; // lights / fog fully switched to the void
 const [A0, A1] = JOURNEY.stages.approach;
-const [ARR0] = JOURNEY.stages.arrival;
+const P_EMERGE = progressOf("emerge");
+const P_STOP = progressOf("stop"); // in front of the boulder: scroll locks here until it breaks
 // autoscroll from just past the rim (the tunnel is on screen from here)
 const P_AUTO_FROM = crossingProgress + 0.008;
 const TRIGGER_ID = "portal-journey";
+const BOULDER_NEAR = 70 / pathLength; // the boulder (and its fragments) are drawn within 70 m of it
 
 /**
- * Write the whole journey state for scroll progress p. Pure function of p:
- * scrolling back up reverses everything exactly.
+ * Write the whole journey state for scroll progress p. Pure function of p
+ * (+ whether the boulder has broken): scrolling back up reverses everything.
  */
 function applyJourney(p, motion) {
   const j = heroState.journey;
   const fx = heroState.fx;
   const E = JOURNEY.effects;
   j.progress = p;
-  sampleJourney(p, heroState.camera.position, heroState.camera.target);
+  const { s, bank } = sampleJourney(p, heroState.camera.position, heroState.camera.target);
+  heroState.camera.bank = bank * motion;
 
   // which worlds are drawn (and simulated)
   j.hero = p < P_HERO_OUT;
-  j.tunnel = p < P_ROCKS_OUT; // glimpsed through the portal from the start
+  j.tunnel = true; // glimpsed through the portal from the start, never empties
   j.reveal = smooth(P_TUNNEL_IN, crossingProgress + WARP.halfWidth * 0.5, p); // dim → full void
   j.motionFx = motion;
-  j.boulder = p > P_BOULDER_IN;
+  j.boulder = Math.abs(s - marks.stop) < BOULDER_NEAR;
   j.void = smooth(P_HERO_OUT, P_VOID, p);
-  j.arrival = smooth(ARR0, 1, p);
-  j.arrived = p > 0.985;
+  // settling in front of the boulder, then easing away again once it has burst
+  j.arrival = smooth(P_EMERGE, P_STOP, p) * (1 - smooth(P_STOP + 0.004, P_STOP + 0.05, p));
+  j.arrived = Math.abs(p - P_STOP) < 0.004;
 
   // portal crossing: a short bell around the moment we pass the rim
   const d = Math.abs(p - crossingProgress) / WARP.halfWidth;
-  const bell = d < 1 ? 1 - d * d * (3 - 2 * d) : 0;
-  j.warp = bell * motion;
+  j.warp = (d < 1 ? 1 - d * d * (3 - 2 * d) : 0) * motion;
 
-  // hero energy: awakens during the approach, brightest as we cross
-  const awaken = smooth(A0 + 0.05, A1, p);
+  // hero energy: awakens during the approach (no glow pump at the crossing)
+  const awaken = smooth(A0 + 0.04, A1, p);
   fx.awaken = awaken * E.awaken;
   fx.mist = lerp(1, E.mist, awaken);
   fx.waterIntensity = lerp(1, E.water, awaken);
-  fx.glowIntensity = lerp(1, E.glowAwaken, smooth(A0, A1, p)) * lerp(1, WARP.rimGlow, bell);
+  fx.glowIntensity = lerp(1, E.glowAwaken, smooth(A0, A1, p));
   fx.ambient = lerp(1, JOURNEY.ambientAfterPortal, j.void);
 
   // cursor parallax: calmer while falling, a little back at the boulder
@@ -81,10 +76,7 @@ function applyJourney(p, motion) {
  * progress value; everything else is derived from it in `applyJourney`.
  *
  * Reduced motion keeps the journey (it is the content) but without the
- * crossing distortion; effect animation is already slowed by FxClock.
- *
- * Next stage (Projects): extend JOURNEY.path / keys past the boulder, or hand
- * off to normal document flow after this section.
+ * crossing distortion, banking or autoscroll.
  */
 export default function usePortalJourney(sectionRef) {
   useEffect(() => {
@@ -121,14 +113,55 @@ export default function usePortalJourney(sectionRef) {
     return () => mm.revert();
   }, [sectionRef]);
 
+  useBoulderLock();
   useTunnelAutoScroll();
+}
+
+/** Scroll position (px) of a journey progress value. */
+function scrollOf(p) {
+  const st = ScrollTrigger.getById(TRIGGER_ID);
+  return st ? st.start + (st.end - st.start) * p : null;
+}
+
+/**
+ * The boulder is a hard stop: until it has burst, the page can't be scrolled
+ * past it (wheel input that would pass it glides into the stop instead;
+ * native scrolling — touch, scrollbar — is clamped). Scrolling back up is
+ * always free. Once `heroState.journey.broken`, the stop is gone.
+ */
+function useBoulderLock() {
+  const lenis = useLenis();
+  useEffect(() => (lenis ? installBoulderLock(lenis) : undefined), [lenis]);
+}
+
+function installBoulderLock(lenis) {
+  const previous = lenis.options.virtualScroll;
+  lenis.options.virtualScroll = (data) => {
+    if (heroState.journey.broken || data.deltaY <= 0) return true;
+    const stop = scrollOf(P_STOP);
+    if (stop === null || lenis.targetScroll + data.deltaY <= stop) return true;
+    if (lenis.targetScroll < stop - 0.5) lenis.scrollTo(stop, { programmatic: false }); // ease into the stop
+    data.event.preventDefault?.();
+    return false;
+  };
+  const clamp = () => {
+    if (heroState.journey.broken) return;
+    const stop = scrollOf(P_STOP);
+    if (stop !== null && lenis.scroll > stop + 1) lenis.scrollTo(stop, { immediate: true, force: true });
+  };
+  lenis.on("scroll", clamp);
+  return () => {
+    lenis.options.virtualScroll = previous;
+    lenis.off("scroll", clamp);
+  };
 }
 
 /**
  * Inside the tunnel, stopping lets the fall carry on: after a short pause
- * the page glides (via Lenis) to the end of the tunnel. Any scroll input —
- * wheel, touch, keys, scrollbar — hands control straight back; stop again
- * and it resumes. Off for reduced motion.
+ * the page glides (via Lenis) on to the boulder — and, once it has burst, on
+ * to the end of the tunnel. Any scroll input — wheel, touch, keys, scrollbar
+ * — hands control straight back; stop again and it resumes. Off for reduced
+ * motion.
  */
 function useTunnelAutoScroll() {
   const lenis = useLenis();
@@ -162,9 +195,13 @@ function useTunnelAutoScroll() {
       const st = ScrollTrigger.getById(TRIGGER_ID);
       if (!st || performance.now() - lastInput < A.delay * 1000 || Math.abs(lenis.velocity) > 1.5) return;
       const p = st.progress;
-      if (p <= P_AUTO_FROM || p >= A.to - 0.004) return;
-      const target = st.start + (st.end - st.start) * A.to;
-      const screens = (target - lenis.scroll) / window.innerHeight;
+      if (p <= P_AUTO_FROM) return;
+      let to;
+      if (p < P_STOP - 0.003) to = P_STOP; // on to the boulder
+      else if (heroState.journey.broken && p < 0.996) to = 1; // it burst: on down the tube
+      else return;
+      const target = st.start + (st.end - st.start) * to;
+      const screens = Math.abs(target - lenis.scroll) / window.innerHeight;
       auto = true;
       lenis.scrollTo(target, {
         duration: Math.max(0.6, screens / A.screensPerSecond),
@@ -193,3 +230,4 @@ function useTunnelAutoScroll() {
     };
   }, [lenis]);
 }
+

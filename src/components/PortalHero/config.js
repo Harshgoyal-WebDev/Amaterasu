@@ -44,24 +44,25 @@ export const PARALLAX = {
 };
 
 /**
- * The scroll journey: hero → approach → through the portal → falling through
- * the rock tunnel → the Skills Boulder. One camera path, one timeline.
+ * The scroll journey: hero → approach → through the portal → a straight
+ * fall down the rock tunnel → the Skills Boulder (scroll stops until it is
+ * uncovered and breaks) → the fall continues. One camera path, one timeline.
  *
- * Scroll progress p (0..1) is mapped to distance along `path` by a smooth
- * monotone curve through `keys` ([p, knot index]): change a key's p to give
- * a stage more or less scroll; velocity stays continuous across stages.
+ * The path = the hero knots below (through the portal) + a generated tube
+ * (`tube`): straight out of the portal, a smooth tip-over into a straight
+ * dive, a smooth level-out facing the boulder, then on down past it. Scroll progress p (0..1) is mapped to
+ * distance along it by a smooth monotone curve through `keys` ([p, marker]);
+ * a marker with `true` is a rest point (the camera eases to a stop there).
  *
- *   screens:  hero 2.4 · approach 2.4 · crossing 0.8 · fall 5.5 · arrival 2.2
- *   progress: 0–0.18 · 0.18–0.36 · 0.36–0.42 · 0.42–0.84 · 0.84–1
- * (crossing is short in scroll so speed keeps rising into the fall, then
- * eases to a stop at the boulder)
+ *   screens:  hero 2.4 · approach 2.4 · crossing 0.8 · fall 5.5 ·
+ *             arrival 2.2 · after the boulder 4
  *
  * Coordinates: the portal opening is x ±1.7, y 0–6.7, rim z -11.45 → -12.95;
  * the back wall has a matching hole and nothing lies beyond z -14.2, so the
- * tunnel and boulder live in that void (hidden until the camera crosses).
+ * tunnel and boulder live in that void.
  */
 export const JOURNEY = {
-  scrollLength: 13.3, // viewport heights of scrolling for the whole journey
+  scrollLength: 17.3, // viewport heights of scrolling for the whole journey
   scrub: 1.2, // s the camera trails the scroll (smoothing on top of Lenis)
   path: [
     [0, 0.9, 5.5], // 0  hero shot (CAMERA.position)
@@ -69,40 +70,49 @@ export const JOURNEY = {
     [0, 1.7, -3.0], // 2
     [0, 2.35, -9.4], // 3  just in front of the portal (2 m before the rim)
     [0, 2.6, -13.6], // 4  through the opening (centre height, ±1.7 m clear)
-    [0, 2.4, -20.0], // 5  gliding on, level, into the void
-    [0, 1.3, -29], // 6  gently tipping over (~7°)
-    [0, -2.6, -38], // 7  (~23°)
-    [0, -10, -47], // 8  (~39°)
-    [0, -21, -57.5], // 9  the dive (~46°), straight, no turns
-    [0, -32, -68.5], // 10
-    [0, -42, -78.5], // 11 starting to level out (~40°)
-    [0, -50, -87.5], // 12 boulder emerging (~30°)
-    [0, -58.1, -97.3], // 13 in front of the boulder (BOULDER.position + front + distance)
+    // …then the generated tube, starting at tube.start
   ],
-  /** [scroll progress, path knot] — stage borders. */
+  /**
+   * The tube past the portal (metres along it): level out of the portal, a
+   * smooth tip-over into a straight dive (with a slight left/right sway), a
+   * smooth level-out facing the boulder, the stop — then level past where
+   * the boulder stood and tipping over into the dive again.
+   */
+  tube: {
+    start: [0, 2.4, -20], // level, heading -z, just past the back wall
+    dive: 48, // ° of the straight dive
+    lead: 4, // m level before tipping over
+    tipOver: 28, // m over which the camera pitches down (and back up again)
+    fall: 55, // m of straight dive
+    glide: 10, // m level before the stop
+    boulderDistance: 6.65, // m from the stop to the boulder's front
+    past: 9, // m level past the boulder
+    after: 24, // m of dive after it (until the next section)
+    sway: 0.55, // m: gentle left/right drift while diving
+    swayLength: 46, // m per sway
+  },
+  /** [scroll progress, marker, rest?] — stage borders. */
   keys: [
-    [0, 0],
-    [0.181, 1],
-    [0.362, 3],
-    [0.422, 5],
-    [0.837, 12],
-    [1, 13],
+    [0, "start"],
+    [0.139, "heroEnd"],
+    [0.277, "portalFront"],
+    [0.324, "voidStart"],
+    [0.642, "emerge"], // boulder emerging (20 m before the stop)
+    [0.769, "stop", true], // in front of the boulder: scroll locks until it breaks
+    [1, "end"],
   ],
   portalFocus: [0, 3.0, -12.2], // looked at during the hero / approach
   lookAhead: 12, // m: how far down the path the camera looks while moving (longer = steadier)
-  /** Knots where the look blends portal → path and path → boulder. */
-  look: { portalFrom: 1, portalTo: 4, boulderFrom: 11 },
   /** Scroll ranges of each stage (for effects). */
-  stages: { approach: [0.181, 0.362], crossing: [0.362, 0.422], fall: [0.422, 0.837], arrival: [0.837, 1] },
-  /** Stop scrolling inside the tunnel → it glides on to the end of the fall. */
-  autoScroll: { delay: 0.6, screensPerSecond: 1.3, to: 0.837 }, // delay: s after your last scroll input
+  stages: { approach: [0.139, 0.277], crossing: [0.277, 0.324], fall: [0.324, 0.642], arrival: [0.642, 0.769], after: [0.769, 1] },
+  /** Stop scrolling inside the tunnel → it glides on (to the boulder, then on to the end). */
+  autoScroll: { delay: 0.6, screensPerSecond: 1.3 }, // delay: s after your last scroll input
   /** heroState.fx values reached during the hero part (1 = at rest). */
   effects: {
     awaken: 1, // web nodes brighten, more filaments carry pulses
     mist: 1.6, // ground mist thickens
     water: 1.2, // violet reflections on the water
     glowAwaken: 1.12, // gate glow + violet lights + bloom while approaching
-    glowCrossing: 1.5, // rim at its brightest as the camera passes through
   },
   /** Hero lights (moon, fill, rake) once the corridor is behind us. */
   ambientAfterPortal: 0.45,
@@ -116,11 +126,10 @@ export const JOURNEY = {
 
 /** Distortion as the camera passes through the portal (peaks inside the rim). */
 export const WARP = {
-  halfWidth: 0.032, // scroll progress either side of the peak
+  halfWidth: 0.025, // scroll progress either side of the peak
   stretch: 0.11, // radial stretch towards the edges
   chromatic: 0.012, // RGB split (uv), strongest at the edges
   blur: 0.05, // radial blur length
-  rimGlow: 1.5, // gate glow multiplier at the peak
   /** Camera speed (m/s) mapped to 0..1 for the fall's motion effects (see VOID). */
   speed: { from: 3, to: 26 },
 };
@@ -130,6 +139,7 @@ export const WARP = {
  * ("Tunnel"). Structure (counts, placement) is in TUNNEL and rebuilds.
  */
 export const VOID = {
+  bank: 6, // ° the camera leans into each sway of the dive
   peek: 0.35, // brightness of the void glimpsed through the portal before crossing
   nebula: 0.28, // the cloudy backdrop around the fall (kept dark)
   nebulaColor: "#1E0844",
@@ -168,8 +178,6 @@ export const TUNNEL = {
     { url: "/assets/models/journey/rock-rune-fragment.glb", count: 6, scale: [1.0, 1.8], clearance: 3, emissive: 2.6 },
     { url: "/assets/models/journey/rock-small-debris.glb", count: 40, scale: [0.8, 2.6], clearance: 1.3, emissive: 0.4 },
   ],
-  fromKnot: 5, // rocks start past the back wall…
-  toKnot: 11, // …and thin out before the boulder
   radius: [1.5, 11], // m from the path
   drift: 0.35, // m of slow floating
   ahead: 55, // m of path ahead of the camera whose rocks are drawn
@@ -184,8 +192,9 @@ export const BOULDER = {
   url: "/assets/models/journey/skills-monolith.glb",
   masks: "/assets/models/journey/skills-monolith-masks.webp",
   clean: "/assets/models/journey/skills-monolith-clean.webp",
-  position: [0, -60, -105], // base centre (the GLB root); front faces +Z
-  focus: [0, 1.9, 1.0], // look-at, relative to position (centre of the inscribed front)
+  // placed by the journey path (journeyPath.js → boulderPose): in the tube,
+  // levelled out, its front (+Z) turned to face the camera at the stop
+  focus: [0, 1.9, 1.0], // look-at, relative to the GLB root (centre of the inscribed front)
   halfWidth: 4.2, // m, for fitting the boulder on narrow screens
   front: {
     z: 1.05, // local z of the inscribed front (it is planar in UV: u→+X, v→-Y)
@@ -194,12 +203,34 @@ export const BOULDER = {
     vMax: 0.46771, // the front occupies v 0..vMax of the atlas
   },
   key: { color: "#B07CFF", intensity: 260, angle: 0.75, penumbra: 0.9, offset: [-4.5, 6.5, 7] },
-  emissive: 0.8, // baked glowing cracks
+  emissive: 1.2, // baked glowing cracks (dark until they light up from the centre)
   dustColor: "#6E6676",
   glowColor: "#9B4DFF",
   glow: 2.2, // revealed engravings
   hint: 0.08, // faint breathing glow on the still-dusty engravings
-  brush: { radius: 0.11, strength: 0.35 }, // m, per dab (repeat to reveal faster)
+  brush: { radius: 0.13, strength: 0.6 }, // m: dust cleared under the cursor as gravel flies
+  /** Carved skills (GLB root coords, from skills-monolith.json): [x, y, z, w, h] */
+  skills: [
+    { key: "nextjs", logo: [-2.0337, 2.2162, 1.0716, 0.4, 0.4], label: [-2.0331, 1.9265, 1.0831, 0.282, 0.084] },
+    { key: "javascript", logo: [-1.3146, 2.2162, 1.0356, 0.4, 0.4], label: [-1.314, 1.9265, 1.0472, 0.4292, 0.084] },
+    { key: "tailwind", logo: [-0.5955, 2.2162, 0.9996, 0.64, 0.3805], label: [-0.5949, 1.9265, 1.0112, 0.5285, 0.084] },
+    { key: "threejs", logo: [0.6372, 2.2092, 0.9693, 0.4, 0.4], label: [0.6364, 1.9195, 0.9838, 0.3299, 0.084] },
+    { key: "r3f", logo: [1.3959, 2.2092, 1.0149, 0.448, 0.4], label: [1.395, 1.9195, 1.0293, 0.7116, 0.084] },
+    { key: "webgl", logo: [2.1545, 2.2092, 1.0604, 0.64, 0.2816], label: [2.1536, 1.9195, 1.0748, 0.2905, 0.084] },
+    { key: "gsap", logo: [-0.3207, 1.0214, 1.1063, 0.64, 0.2343], label: [-0.3214, 0.7321, 1.0861, 0.2266, 0.084] },
+  ],
+  /** Small gravel covering each skill: hover flicks it away. */
+  gravel: {
+    perSquareMetre: 650,
+    size: [0.022, 0.05], // m radius
+    color: "#3a3440",
+    kickRadius: 0.13, // m around the cursor
+    clearedAt: 0.8, // a skill counts as uncovered once this share of its gravel is gone
+  },
+  /** Cracks lighting up from the centre as skills are uncovered. */
+  crack: { color: "#A15CFF", glow: 1.8, seams: 3, reach: 5.2, centre: [0, 1.8, 1.0] }, // reach: m at 100%
+  /** After the last skill: the boulder bursts and the scroll carries on. */
+  burst: { delay: 0.7, hold: 2.2, speed: [3.5, 7], drag: 1.1, spin: [1.2, 3.2], minRadius: 4 }, // hold: s to watch it before the scroll carries on
 };
 
 /** Objects rendered into the water reflection are also put on this layer. */

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { TUNNEL, VOID } from "../../config";
 import { getNoiseTexture } from "../noiseTexture";
-import { curve, knotS } from "./journeyPath";
+import { boulderPose, curve, marks } from "./journeyPath";
 
 /**
  * The look of the void past the portal: smoke banks and the nebula backdrop
@@ -39,7 +39,9 @@ const fall = new THREE.Vector3();
  * wall, so nothing pokes into the corridor: slide it on down the fall.
  */
 export function behindWall(point, radius = 0) {
-  if (point.z + radius <= BACK_WALL_Z) return point;
+  // only the corridor's own volume matters (the spiral later loops back far below it)
+  const nearCorridor = point.y > -8 && Math.abs(point.x) < 10;
+  if (!nearCorridor || point.z + radius <= BACK_WALL_Z) return point;
   curve.getTangentAt(0.5, fall);
   return point.addScaledVector(fall, (point.z + radius - BACK_WALL_Z) / -fall.z + 0.5);
 }
@@ -52,11 +54,19 @@ function aroundPath(s, r, a, out) {
   return curve.getPointAt(s, out).addScaledVector(N, Math.cos(a) * r).addScaledVector(B, Math.sin(a) * r);
 }
 
-/** Direction of the fall (rocks roll around it, the nebula wraps it). */
-export const fallAxis = curve
-  .getPointAt(knotS(TUNNEL.toKnot))
-  .sub(curve.getPointAt(knotS(TUNNEL.fromKnot)))
-  .normalize();
+/** Overall direction of the fall (the nebula wraps it). */
+export const fallAxis = curve.getPointAt(marks.stop).sub(curve.getPointAt(marks.voidStart)).normalize();
+
+/** Keep void content clear of the boulder and of the view onto it. */
+const boulderAt = boulderPose.position.clone().add(new THREE.Vector3(0, 1.8, 0));
+const stopAt = curve.getPointAt(marks.stop);
+const segment = new THREE.Line3(stopAt, boulderAt);
+const closest = new THREE.Vector3();
+export function clearOfBoulder(point, reach = 0) {
+  if (point.distanceTo(boulderAt) < 6.5 + reach) return false;
+  segment.closestPointToPoint(point, true, closest);
+  return point.distanceTo(closest) > 5 + reach;
+}
 
 /** Dim the GLB rock materials with the void veil (patched shader). */
 export function veilMaterial(material) {
@@ -117,14 +127,15 @@ export function createSmoke(density) {
   const count = Math.max(1, Math.round(TUNNEL.smokeCount * Math.max(density, 0.5)));
   const [sizeMin, sizeMax] = TUNNEL.smokeSize;
   const rnd = mulberry32(TUNNEL.seed + 307);
-  const s0 = knotS(TUNNEL.fromKnot);
-  const s1 = knotS(TUNNEL.toKnot + 1);
+  const s0 = marks.voidStart;
+  const s1 = 1;
   const iCenter = new Float32Array(count * 3);
   const iSize = new Float32Array(count);
   const iSeed = new Float32Array(count);
   const p = new THREE.Vector3();
   for (let i = 0; i < count; i++) {
     behindWall(aroundPath(s0 + ((i + rnd()) / count) * (s1 - s0), 4 + rnd() * 8, rnd() * Math.PI * 2, p), 1);
+    if (!clearOfBoulder(p, 2)) p.addScaledVector(curve.getTangentAt(Math.min(1, s0 + ((i + 0.5) / count) * (s1 - s0))), 14);
     iCenter.set([p.x, p.y, p.z], i * 3);
     iSize[i] = sizeMin + rnd() * (sizeMax - sizeMin);
     iSeed[i] = rnd();
@@ -173,8 +184,9 @@ const nebulaVertex = /* glsl */ `
 varying vec3 vDir;
 void main() {
   vDir = normalize((modelMatrix * vec4(position, 1.0)).xyz - cameraPosition);
-  vec4 p = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
-  gl_Position = p.xyww; // at the far plane: behind everything
+  // drawn first with no depth test (renderOrder -1): everything else covers it,
+  // and nothing flickers at the far plane
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
 }
 `;
 const nebulaFragment = /* glsl */ `
@@ -224,6 +236,8 @@ export function createNebula() {
     fragmentShader: nebulaFragment,
     side: THREE.BackSide,
     depthWrite: false,
+    depthTest: false,
+    fog: false,
     toneMapped: false,
   });
   return {

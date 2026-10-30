@@ -7,21 +7,22 @@ import * as THREE from "three";
 import { TUNNEL, VOID } from "../../config";
 import { useConfigVersion } from "../../controls/configStore";
 import { heroState } from "../../state";
-import { curve, knotS, pace, pathLength } from "./journeyPath";
-import { behindWall, createNebula, createSmoke, fallAxis, mulberry32, veilMaterial, voidUniforms } from "./voidEffects";
+import { curve, marks, pace, pathLength } from "./journeyPath";
+import { behindWall, clearOfBoulder, createNebula, createSmoke, mulberry32, veilMaterial, voidUniforms } from "./voidEffects";
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
 /**
- * Rock placements along the fall: each rock gets a spot around the camera
- * path (never closer than its clearance), a scale, its own spin axis and
- * speed, and a slow float. Deterministic, computed once, sorted by distance
- * along the path (so "rocks up to here" is simply the first N instances).
+ * Rock placements along the whole tube (past the boulder too): each rock
+ * gets a spot around the camera path (never closer than its clearance, and
+ * clear of the boulder and the view onto it), a scale, a turn rate per axis
+ * in its local tube frame, and a slow float. Deterministic, computed once,
+ * sorted by distance along the path ("rocks up to here" = the first N).
  */
 function placeRocks(density) {
   const rnd = mulberry32(TUNNEL.seed);
-  const s0 = knotS(TUNNEL.fromKnot);
-  const s1 = knotS(TUNNEL.toKnot);
+  const s0 = marks.voidStart;
+  const s1 = 1;
   const [rMin, rMax] = TUNNEL.radius;
   const T = new THREE.Vector3();
   const N = new THREE.Vector3();
@@ -42,9 +43,15 @@ function placeRocks(density) {
         curve.getPointAt(s).addScaledVector(N, Math.cos(angle) * r).addScaledVector(B, Math.sin(angle) * r),
         scale * 1.2,
       );
+      if (!clearOfBoulder(position, scale)) continue;
+      // local tube frame (right-handed, like a camera looking down the fall):
+      // x across, y up the screen, z back up the tube — z spin = rolling on screen
+      const frame = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(N, B, T.clone().negate()));
       items.push({
         s,
         position,
+        frame,
+        frameInv: frame.clone().invert(),
         scale,
         // per-axis turn rate factors (random speed + direction for each axis)
         turn: [0, 1, 2].map(() => (0.5 + rnd()) * (rnd() < 0.5 ? -1 : 1)),
@@ -132,7 +139,7 @@ void main() {
 
 function buildDust(count) {
   const rnd = mulberry32(TUNNEL.seed + 101);
-  const s0 = knotS(TUNNEL.fromKnot); // all behind the back wall: none leak into the corridor
+  const s0 = marks.voidStart; // all behind the back wall: none leak into the corridor
   const positions = new Float32Array(count * 3);
   const seeds = new Float32Array(count);
   const sizes = new Float32Array(count);
@@ -222,11 +229,6 @@ export default function Tunnel({ density = 1 }) {
     const turn = new THREE.Quaternion();
     const euler = new THREE.Euler();
     // the fall's frame: x across the screen, y up the screen, z along the fall
-    const fz = fallAxis.clone();
-    const fx = new THREE.Vector3().crossVectors(fz, new THREE.Vector3(0, 1, 0)).normalize();
-    const fy = new THREE.Vector3().crossVectors(fx, fz).normalize();
-    const frame = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(fx, fy, fz));
-    const frameInv = frame.clone().invert();
     const pos = new THREE.Vector3();
     const scl = new THREE.Vector3();
     const aheadS = TUNNEL.ahead / pathLength;
@@ -267,7 +269,7 @@ export default function Tunnel({ density = 1 }) {
               it.phase * 2.3 + t * VOID.spinZ * it.turn[2],
             );
             turn.setFromEuler(euler);
-            q.copy(frame).multiply(turn).multiply(frameInv).multiply(it.rest);
+            q.copy(it.frame).multiply(turn).multiply(it.frameInv).multiply(it.rest);
             pos.copy(it.position).addScaledVector(it.floatDir, Math.sin(time * it.floatSpeed + it.phase) * TUNNEL.drift);
             scl.setScalar(it.scale);
             meshes[k].setMatrixAt(i, m.compose(pos, q, scl).multiply(meshes[k].userData.local));

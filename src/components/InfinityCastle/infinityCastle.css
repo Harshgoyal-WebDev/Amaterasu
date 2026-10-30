@@ -1,0 +1,295 @@
+/* Infinity Castle — page-level styles (fonts come from app/infinity-castle/page.js) */
+
+.ic-root {
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ic-serif {
+  font-family: var(--font-ic-serif), "Cormorant Garamond", Georgia, serif;
+}
+
+.ic-jp {
+  font-family: var(--font-ic-jp), "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+}
+
+.ic-cue {
+  animation: ic-cue 2.6s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+  transform-origin: top;
+}
+
+@keyframes ic-cue {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  35% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1) translateY(60%);
+    opacity: 0;
+  }
+}
+
+.ic-region {
+  animation: ic-region 5.5s ease-out both;
+}
+
+@keyframes ic-region {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  14% {
+    opacity: 1;
+    transform: none;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.42;
+  }
+}
+
+
+/* ── the summons letter ─────────────────────────────────────────────── */
+
+.ic-letter-backdrop {
+  background: radial-gradient(120% 90% at 50% 45%, rgba(10, 4, 2, 0.55), rgba(2, 1, 1, 0.92));
+  animation: ic-fade-in 1.2s ease-out backwards;
+  transition: opacity 0.6s ease-in 0.75s;
+}
+
+.ic-letter-backdrop.is-closing {
+  opacity: 0;
+}
+
+/* the scroll: --ic-roll is how far it is unrolled (the bottom rod rides on it) */
+@property --ic-roll {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 100%;
+}
+
+.ic-letter {
+  --ic-roll: 100%;
+  filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 40px rgba(196, 85, 28, 0.12));
+  transform: rotate(-0.6deg);
+  animation: ic-unroll 2.1s cubic-bezier(0.3, 0.6, 0.2, 1) 0.15s backwards;
+}
+
+.is-closing .ic-letter {
+  animation: ic-rollup 1.35s cubic-bezier(0.55, 0, 0.6, 1) forwards;
+}
+
+.ic-unroll {
+  clip-path: inset(0 0 calc(100% - var(--ic-roll)) 0);
+}
+
+.ic-rod {
+  position: absolute;
+  z-index: 2;
+  left: -16px;
+  right: -16px;
+  height: 18px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #4a2410 0%, #a3653a 28%, #6b3518 55%, #2a1206 100%);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 210, 160, 0.25);
+  pointer-events: none;
+}
+
+/* lacquered end caps with a gold band */
+.ic-rod::before,
+.ic-rod::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  width: 15px;
+  height: 28px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #120604, #3a0b07 45%, #120604);
+  box-shadow:
+    inset 0 3px 0 #b98a3c,
+    inset 0 -3px 0 #b98a3c,
+    0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.ic-rod::before {
+  left: -8px;
+}
+
+.ic-rod::after {
+  right: -8px;
+}
+
+.ic-rod-top {
+  top: -9px;
+}
+
+.ic-rod-bottom {
+  top: calc(var(--ic-roll) - 9px);
+}
+
+.ic-paper {
+  color: #2a150b;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(90, 40, 15, 0.45) transparent;
+  background-color: #d6bf93;
+  background-image:
+    /* fibres */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.32  0 0 0 0 0.18  0 0 0 0 0.07  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>"),
+    /* water stains and age */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='700' height='900'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.006' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 0.36  0 0 0 0 0.18  0 0 0 0 0.05  0 0 0 1.1 -0.38'/></filter><rect width='100%' height='100%' filter='url(%23s)'/></svg>"),
+    /* dried blood */
+    radial-gradient(circle at 91% 6%, rgba(96, 8, 6, 0.55) 0 1.6%, transparent 2.2%),
+    radial-gradient(circle at 87% 9%, rgba(96, 8, 6, 0.45) 0 0.7%, transparent 1.1%),
+    radial-gradient(circle at 94% 13%, rgba(96, 8, 6, 0.4) 0 0.45%, transparent 0.8%),
+    radial-gradient(ellipse at 8% 96%, rgba(90, 10, 6, 0.32), transparent 9%),
+    /* scorched rim */
+    radial-gradient(ellipse 75% 70% at 50% 48%, transparent 58%, rgba(92, 46, 14, 0.5) 86%, rgba(38, 16, 4, 0.9) 100%);
+  background-size: 220px 220px, cover, auto, auto, auto, auto, auto;
+  box-shadow:
+    inset 0 0 18px rgba(50, 20, 4, 0.65),
+    inset 0 0 70px rgba(110, 55, 18, 0.45);
+}
+
+.ic-ink {
+  text-shadow: 0 0 0.6px rgba(42, 21, 11, 0.85), 0 0 2px rgba(60, 20, 5, 0.18);
+}
+
+.ic-ink-red {
+  color: #7c120c;
+  text-shadow: 0 0 1px rgba(124, 18, 12, 0.6), 0 0 6px rgba(124, 18, 12, 0.18);
+}
+
+.ic-dropcap::first-letter {
+  float: left;
+  margin: 0.06em 0.12em 0 0;
+  font-size: 3.4em;
+  line-height: 0.8;
+  color: #7c120c;
+}
+
+.ic-rule {
+  background: linear-gradient(to right, transparent, rgba(124, 18, 12, 0.7), transparent);
+}
+
+.ic-key {
+  display: inline-block;
+  padding: 0.1em 0.55em 0.05em;
+  border: 1px solid rgba(60, 25, 8, 0.55);
+  border-radius: 3px;
+  background: rgba(70, 35, 10, 0.08);
+  font-family: inherit;
+  font-size: 0.78em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(60, 25, 8, 0.35);
+}
+
+.ic-key-red {
+  color: #7c120c;
+  border-color: rgba(124, 18, 12, 0.6);
+}
+
+.ic-seal {
+  color: #f1dcc0;
+  background: radial-gradient(circle at 40% 35%, #a51d14, #6e0c08 70%);
+  border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%;
+  box-shadow:
+    inset 0 0 0 3px rgba(241, 220, 192, 0.25),
+    inset 0 0 12px rgba(30, 0, 0, 0.6),
+    0 2px 4px rgba(60, 0, 0, 0.35);
+  transform: rotate(-9deg);
+  opacity: 0.88;
+}
+
+.ic-enter {
+  min-width: 15rem;
+  padding: 0.8rem 1.6rem 0.7rem;
+  border: 1px solid rgba(124, 18, 12, 0.75);
+  color: #f1dcc0;
+  background: linear-gradient(180deg, #8e1a11, #5e0b07);
+  font-size: 12px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 0 3px rgba(214, 191, 147, 0.9),
+    0 0 0 4px rgba(124, 18, 12, 0.45),
+    0 8px 18px rgba(60, 10, 4, 0.35);
+  transition:
+    filter 0.3s,
+    transform 0.3s;
+}
+
+.ic-enter:hover,
+.ic-enter:focus-visible {
+  filter: brightness(1.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+@keyframes ic-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ic-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ic-unroll {
+  from {
+    --ic-roll: 0%;
+    opacity: 0;
+    transform: rotate(-0.6deg) translateY(-3vh);
+  }
+  12% {
+    opacity: 1;
+    transform: rotate(-0.6deg);
+  }
+  to {
+    --ic-roll: 100%;
+  }
+}
+
+@keyframes ic-rollup {
+  from {
+    --ic-roll: 100%;
+  }
+  65% {
+    --ic-roll: 0%;
+    opacity: 1;
+    transform: rotate(-0.6deg);
+  }
+  to {
+    --ic-roll: 0%;
+    opacity: 0;
+    transform: rotate(-0.6deg) translateY(-45vh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ic-cue {
+    animation: none;
+    opacity: 0.6;
+  }
+  .ic-letter {
+    animation: ic-fade-in 0.6s ease-out backwards;
+  }
+  .is-closing .ic-letter {
+    animation: ic-fade-out 0.6s ease-in forwards;
+  }
+}

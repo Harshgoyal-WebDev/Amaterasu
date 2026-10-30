@@ -7,6 +7,7 @@ import { BOULDER, GATE, LAYERS, PORTAL, VIOLET, VIOLET_RIG, VOID } from "../conf
 import { heroState } from "../state";
 import { energyUniforms } from "./network/energyUniforms";
 import { setLightOn } from "./shadows";
+import { boulderFocus, boulderPose } from "./journey/journeyPath";
 
 const glowVertex = /* glsl */ `
 varying vec3 vWorld;
@@ -155,7 +156,7 @@ function buildSurfaceGeometry(segments = 240, inset = 0.012) {
 }
 
 const camOffset = new THREE.Vector3();
-const boulderFocus = new THREE.Vector3(...BOULDER.position).add(new THREE.Vector3(...BOULDER.focus));
+const keyOffset = new THREE.Vector3(...BOULDER.key.offset);
 
 /**
  * Violet light from the portal (three real lights) + the glowing gate:
@@ -250,7 +251,7 @@ export default function PortalLighting() {
       spill.current.intensity = VOID.light * j.void;
       spill.current.distance = VOID.lightDistance;
       const K = BOULDER.key;
-      wash.current.position.fromArray(BOULDER.position).add(camOffset.fromArray(K.offset));
+      boulderPose.toWorld(keyOffset, wash.current.position); // offset in the boulder's own frame
       washTarget.current.position.copy(boulderFocus);
       wash.current.color.set(K.color);
       wash.current.intensity = K.intensity * j.arrival;

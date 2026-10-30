@@ -2,7 +2,7 @@
 
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { BOULDER, CAMERA, PARALLAX, WARP } from "../config";
+import { BOULDER, CAMERA, PARALLAX, VOID, WARP } from "../config";
 import { pointer } from "../hooks/usePointer";
 import { heroState } from "../state";
 
@@ -80,6 +80,9 @@ export default function CameraRig({ parallax = true }) {
       .addScaledVector(right, smoothed.x * PARALLAX.range[0])
       .addScaledVector(up, smoothed.y * PARALLAX.range[1] + drift);
     camera.lookAt(target);
+    // lean gently into each sway of the dive (heroState.camera.bank -1..1)
+    const roll = heroState.camera.bank * VOID.bank * DEG;
+    if (roll) camera.rotateZ(-roll);
     camera.updateMatrixWorld(); // the water reflection pass reads this pose
   });
 

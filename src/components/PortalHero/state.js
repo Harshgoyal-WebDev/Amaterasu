@@ -16,6 +16,8 @@ export const heroState = {
     target: new THREE.Vector3(...JOURNEY.portalFocus),
     /** 0 = cursor parallax off, 1 = full. */
     parallax: 1,
+    /** -1..1 lean into the dive's sway (× VOID.bank °). */
+    bank: 0,
   },
   fx: {
     particleIntensity: 1, // node + thread brightness
@@ -36,7 +38,9 @@ export const heroState = {
     boulder: false, // the Skills Boulder drawn
     void: 0, // 0..1 the camera is in the void past the portal (lights / fog)
     arrival: 0, // 0..1 settling in front of the boulder
-    arrived: false, // the boulder can be scratched
+    arrived: false, // stopped in front of the boulder
+    broken: false, // the boulder has burst: the scroll carries on past it
+    uncovered: 0, // 0..1 share of the skills' gravel cleared (cracks light up with it)
     warp: 0, // 0..1 portal-crossing distortion
     motionFx: 1, // 0 for reduced motion: no warp / speed blur
     speed: 0, // 0..1 camera speed (eased), drives the fall's motion effects
