@@ -4,6 +4,7 @@ import { Component, useEffect, useMemo, useRef, useSyncExternalStore } from "rea
 import dynamic from "next/dynamic";
 import { disposeSound } from "./audio/sound";
 import { LOW_QUALITY_QUERY, REDUCED_MOTION_QUERY } from "./config";
+import useControlsEnabled from "./controls/useControlsEnabled";
 import { InputController } from "./input/InputController";
 import { journey, uiStore } from "./state";
 import Hud from "./ui/Hud";
@@ -13,6 +14,9 @@ import SummonsLetter from "./ui/SummonsLetter";
 import useMediaQuery from "./ui/useMediaQuery";
 import useUiStore from "./ui/useStore";
 import "./infinityCastle.css";
+
+// Leva "Sound" panel — only downloaded when enabled (dev, or `?controls`).
+const SoundControls = dynamic(() => import("./controls/SoundControls"), { ssr: false });
 
 const ExperienceCanvas = dynamic(() => import("./canvas/ExperienceCanvas"), { ssr: false });
 
@@ -70,6 +74,7 @@ export default function InfinityCastle() {
   const touch = useMediaQuery("(pointer: coarse)");
   const input = useMemo(() => new InputController(), []);
   const paper = useUiStore((s) => s.paper);
+  const showControls = useControlsEnabled();
 
   useEffect(() => input.hold(paper), [input, paper]);
 
@@ -138,6 +143,7 @@ export default function InfinityCastle() {
       {webgl !== false && <Hud input={input} touch={touch} />}
       {/* client-only, so it unrolls in front of the reader rather than during page load */}
       {webgl === true && <SummonsLetter touch={touch} />}
+      {showControls && <SoundControls />}
     </div>
   );
 }

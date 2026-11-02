@@ -1,17 +1,19 @@
 import gsap from "gsap";
-import { Path, arc, line, yawQuat } from "../path";
+import { Path, arc, line, smoothstep, yawQuat } from "../path";
 import { emitAudio } from "../../state";
 import { EYE, HALF_PI, V, YAW, doorController } from "./common";
 
 /**
  * STAGE 06 — the room that repeats. An 8 × 8 tatami room (A or B, rotated by
  * a quarter turn now and then — the doors stay centred on every wall), entered
- * from the south. Every other wall is a way on, so the neighbouring rooms are
- * visible through open doors: the same room, again and again, with small
- * differences (lantern side, a scroll, how far a door is open).
+ * from the south. Every other wall is a way on. All doors stay shut until you
+ * come: the entry slides open as you near it, the ways on as you step inside —
+ * showing the next room, the same room again, with small differences (lantern
+ * side, a scroll, how far a door is open).
  *
  * Once a direction is committed the other doors slide shut — and so does the
- * one behind you, unless you turn back.
+ * one behind you, unless you turn back. Back up out of the doorway and the
+ * choice is yours again: the doors slide back open.
  */
 
 const WALL_ORDER = ["E", "N", "W", "S"]; // +90° yaw maps each to the next
@@ -65,19 +67,41 @@ const roomChunk = {
       left: { frame: { p: V(-4, 0, -4), q: yawQuat(YAW.left) }, path: new Path(side(-1), { decisionS }) },
     };
 
-    // doors: entry open, exits open (by slightly different amounts)
-    const amount = { S: 1, N: rng.range(0.82, 1), E: rng.range(0.82, 1), W: rng.range(0.82, 1) };
-    for (const w in amount) doors.set(w, amount[w]);
+    // doors: all shut until you come — the entry slides open as you reach it,
+    // the ways on (by slightly different amounts) as you step inside
+    const reach = { N: rng.range(0.85, 1), E: rng.range(0.85, 1), W: rng.range(0.85, 1) };
+    for (const w of ["S", "N", "E", "W"]) doors.set(w, 0);
 
     const tweens = [];
-    const st = { committed: null, behindClosed: false };
+    const st = { committed: null, behindClosed: false, entry: 0, ways: 0 };
+    const sealed = new Set();
     const animate = (wall, to, duration = 0.85) => {
       const o = { k: doors.get(wall) };
       tweens.push(gsap.to(o, { k: to, duration, ease: "power2.inOut", onUpdate: () => doors.set(wall, o.k) }));
     };
 
-    b.onUpdate(({ camLocal, alive }) => {
-      if (!st.committed) return;
+    // doors follow you, eased: after a change of mind they slide back rather than jump
+    const ease = (wall, target, k) => {
+      const cur = doors.get(wall);
+      if (cur !== target) doors.set(wall, Math.abs(target - cur) < 1e-3 ? target : cur + (target - cur) * k);
+    };
+
+    b.onUpdate(({ camLocal, alive, dt }) => {
+      if (!st.committed) {
+        // the entry by distance, from any side: this doorway is also the previous
+        // room's exit, so it opens as you step into that room — one door after the other
+        const level = Math.abs(camLocal.y - EYE) < 2.5;
+        const entry = level ? smoothstep(7.2, 5.2, Math.hypot(camLocal.x, camLocal.z)) : 0;
+        const ways = level && Math.abs(camLocal.x) < 3 ? smoothstep(0.4, -1.3, camLocal.z) : 0;
+        if (entry > 0.04 && st.entry <= 0.04) emitAudio("door", 0.7);
+        if (ways > 0.04 && st.ways <= 0.04) emitAudio("door", 0.8);
+        st.entry = entry;
+        st.ways = ways;
+        const k = 1 - Math.exp(-dt * 10);
+        ease("S", entry, k);
+        for (const w in reach) ease(w, sealed.has(w) ? 0 : ways * reach[w], k);
+        return;
+      }
       // the door you came through closes once you are well inside, re-opens if you turn back
       const inside = camLocal.z < -3.2 || Math.abs(camLocal.x) > 1.2;
       const wantClosed = (alive || repeat >= 1) && inside;
@@ -100,13 +124,21 @@ const roomChunk = {
         st.committed = dir;
         for (const [d, wall] of Object.entries(DIR_WALL)) {
           if (d === dir) animate(wall, 1, 0.4);
+          else if (sealed.has(wall)) continue;
           else if (exits[d].sealed || b.alive || repeat >= 2) {
             animate(wall, 0, 0.9);
             emitAudio("door", 0.8);
           }
         }
       },
+      onUncommit() {
+        tweens.forEach((t) => t.kill());
+        tweens.length = 0;
+        st.committed = null;
+        st.behindClosed = false;
+      },
       onSeal(dir) {
+        sealed.add(DIR_WALL[dir]);
         doors.set(DIR_WALL[dir], 0);
       },
       dispose: () => tweens.forEach((t) => t.kill()),

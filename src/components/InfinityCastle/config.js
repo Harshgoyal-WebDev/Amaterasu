@@ -7,7 +7,7 @@ export const ASSET_BASE = "/assets/models/infinity-castle/web/";
 
 export const PALETTE = {
   void: "#030202",
-  fog: "#0a0605",
+  fog: "#150c08", // a faint warm haze: distant architecture reads as silhouettes against the void
   cedar: "#3a2417",
   amber: "#ff9a3c",
   ivory: "#f2e4cc",
@@ -57,8 +57,8 @@ export const MOTION = {
 
 // Falls (chunks mark them with drift): gravity drives the camera, scrolling is ignored.
 export const FALL = {
-  gravity: 3.6, // path-m/s² (the path's pace multiplies it, so long drops get faster still)
-  terminal: 9.5, // path-m/s
+  gravity: 7.5, // path-m/s² (the path's pace multiplies it, so long drops get faster still)
+  terminal: 17, // path-m/s
   landingTime: 0.7, // s of braking after touching down (scaled by impact)
   landingDamping: 0.16, // velocity time constant while braking (s)
 };
@@ -98,7 +98,10 @@ export const CROWS = {
   every: [5, 13], // s between flocks
   flock: [1, 4],
   minVoid: 0.45, // only where the space is open enough
-  speed: [6.5, 9.5], // m/s
+  speed: [15, 21], // m/s — a dive-bombing pace; crossings take ~3 s
+  flapRate: 1.15, // × the flap clip (6 beats/s → ~7)
+  flapFor: [1.4, 3], // s of beating …
+  glideFor: [0.25, 0.7], // … between short glides
   cawChance: 0.75,
 };
 
@@ -125,6 +128,7 @@ export const WORLD = {
 
 export const FOG = {
   density: 0.021,
+  scale: 0.72, // × every chunk's fog: thinner, so the castle around you stays visible
   smoothing: 0.6, // 1/s
 };
 
@@ -137,10 +141,10 @@ export const LIGHTS = {
   decay: 1.6,
   fadeRate: 5,
   // a warm base level everywhere, so corridors and staircases always read
-  ambientBase: 0.5,
+  ambientBase: 0.8,
   ambientColor: "#ffc48c",
-  ambient: 0.2, // hemisphere sky, scaled up in open spaces
-  hemiSky: "#6a3c20",
+  ambient: 0.5, // hemisphere sky, scaled up in open spaces
+  hemiSky: "#8a5230",
   underGlow: "#ff8a3c", // the abyss's light rising from below, in open spaces
   underGlowIntensity: 1.25,
   hemiGround: "#050302",
@@ -149,17 +153,38 @@ export const LIGHTS = {
   flickerEvery: [9, 22], // s between a nearby lantern guttering (with a sound)
 };
 
-// Optional background music: drop a file you have the rights to at this path.
-// Missing file → only the generated ambience plays.
 export const AUDIO = {
-  // first one that exists is used
-  musicUrls: [
-    encodeURI("/assets/infinity-castle/music/To the Infinity Castle - Muzan vs Hashira Theme (from Demon Slayer ).mp3"),
-    ...["mp3", "m4a", "ogg", "webm", "wav"].map((ext) => `/assets/audio/infinity-castle-bgm.${ext}`),
-  ],
-  musicVolume: 0.08,
-  ambienceWithMusic: 0.45, // generated layers are lowered while music plays
   effectsVolume: 1,
+  // crow calls (Carrion Crow, xeno-canto XC499144 — CC BY-SA 4.0, see public/assets/infinity-castle/sfx/CREDITS.md)
+  crowUrls: [1, 2, 3, 4, 5].map((n) => `/assets/infinity-castle/sfx/crow-${n}.mp3`),
+};
+
+// The sound mix: volumes are × the designed level (1 = as designed, 0 = off).
+// Read live by the audio engine; tuned with the Leva "Sound" panel (dev, or ?controls).
+export const MIX = {
+  master: 1,
+  // ambience (continuous)
+  room: 1.01, // room tone: the weight of the building
+  wind: 0.55, // the void wind (rises with falls and open space)
+  drone: 3,
+  reverb: 0.85, // how much of everything echoes in the castle
+  // you
+  steps: 1.51,
+  squeak: 3, // floorboards squeaking under a step
+  squeakChance: 0, // per step when walking (half that when running)
+  land: 2.02, // touching down after a fall
+  // the castle
+  creak: 0.5,
+  door: 3, // shoji doors sliding
+  gate: 3, // the entrance gate and the false exit
+  flicker: 3, // a lantern guttering
+  transform: 3, // architecture rearranging
+  grind: 3, // a moving piece (stone on stone, drawer runners)
+  biwa: 0.7,
+  // crows
+  crow: 2.75,
+  crowPitch: 1, // × playback speed (already 0.8–0.94: deeper, creakier)
+  wings: 0,
 };
 
 export const QUALITY = {

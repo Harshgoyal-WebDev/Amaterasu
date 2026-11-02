@@ -25,18 +25,20 @@ canvas/                   one R3F canvas: WorldController → CameraRig, pooled 
                           fog + particles, wrapped background silhouettes, bloom (high tier)
 audio/castleAudio.js      generative Web Audio (room tone, wind, creaks, shoji slides, biwa, footsteps, landing)
 canvas/edgeBlurEffect.js  radial edge blur (speed lines), driven by speed and falls in Effects.jsx
-canvas/Crows.jsx          crows from your model (see Crows below): flocks cross open spaces, caw (panned), wingbeats close by
-audio/sound.js            the shared audio instance: two channels, music and sound, switched separately
-ui/                       summons letter (lore + controls), intro, HUD (place, junction ways, sound), still fallback
+canvas/Crows.jsx          crows from your model (see Crows below): flocks cross open spaces, caw (panned), wingbeats close by;
+                          they set off only on clear lines and steer round anything solid (CastleWorld.obstacles)
+audio/sound.js            the shared audio instance, switched on and off from the HUD
+ui/                       loader → summons letter (lore + controls), intro, HUD (place, junction ways, sound), still fallback
+controls/SoundControls    Leva "Sound" panel (dev, or `?controls`): a level for every sound, crow pitch, test buttons, "Copy mix"
 ```
 
 ## How it works
 
 - The castle is a graph of chunks. Each chunk is assembled from prefabs and has paths from its entry to each exit. An exit's frame (position and orientation) is the next chunk's origin, so position, heading and roll stay continuous across chunks, including through the gravity twist.
 - The camera is logical (`current chunk`, `s` metres along its path). Scrolling adds velocity, never position. Progress never becomes a global number. World coordinates are rebased past 1.5 km.
-- Every exit of a nearby junction gets a real preview chunk, so every visible way on exists. Unchosen branches are released once out of view.
-- Falls are the stretches a chunk marks with `drift(s, dir)`. Inside one, gravity drives the camera (`config.js → FALL`) and scroll input is ignored. Touching down brakes hard, dips the head and thuds.
-- Walking: stride length grows with speed (walk → run). The camera bobs and rolls per footstep (`GAIT`), and each step plays a footfall. Both stop while falling or gliding through the void.
+- Every exit of a nearby junction gets a real preview chunk, so every visible way on exists. Passing a junction's decision point commits the way you picked; back up 0.6 m before it and the choice is open again (rooms slide their doors back). The ways not taken at the last junction are kept while you are within a chunk of it; further back, unchosen branches are released once out of view.
+- Falls are the stretches a chunk marks with `drift(s, dir)`. Inside one, gravity drives the camera (`config.js → FALL`) and scroll input is ignored. Touching down brakes hard, dips the head and thuds. Every fall starts at a floor's edge and ends on a floor (a bridge, the abyss deck); outside falls, every path has a floor under it. The one exception is the crossroads' lift up the shaft, marked `airborne(s, dir)` (no footsteps).
+- Walking: stride length grows with speed (walk → run). The camera bobs and rolls per footstep (`GAIT`), and each step plays a footfall. Both stop while falling, rising or `airborne`.
 - Nothing may stand in a way. A moving dressing piece is sampled along its whole sweep: if any pose would cross its own chunk's path, it doesn't move. Each new chunk's dressing (every pose) is also checked against the paths of every live chunk, and theirs against its paths, and any piece that would block a way is removed (`CastleWorld.clearDressing`).
 - Moving pieces sound for as long as they move: stone grinding on rough stone with timber runners rattling like a heavy drawer, panned to where the piece is.
 - New chunks are tested against live ones (bounds plus per-mesh occupancy for the large clusters). If none fits, the door stays shut, or the castle drops you elsewhere. The abyss cluster's outer cells count as dressing: they are hidden where they would cut through another chunk.
@@ -65,6 +67,12 @@ The crow is `blender/infinity_castle/crow.blend` (armature `CrowRig`, 1,456 tria
 - the action names `flap` (looping wingbeat) and `glide` (wings held out, played between bursts). Clips may start at frame 1; the loader shifts them to t = 0 so the loop doesn't hold its first pose.
 - the export settings: GLB, +Y up, animations as actions, skinning on. The runtime clones the materials and adds a faint warm rim.
 
+The caws are recordings: `public/assets/infinity-castle/sfx/crow-1…5.mp3` (`AUDIO.crowUrls`), cut from a Carrion Crow recording by Marie-Lan Taÿ Pamart (xeno-canto XC499144, CC BY-SA 4.0). The attribution is in `sfx/CREDITS.md`; keep it if the site ships them. They play 6–20% slower, for a deeper, creakier bird.
+
+## Sound mix
+
+Every sound's level lives in `config.js → MIX` (1 = as designed, 0 = off), read live by the audio engine. Tune it with the Leva "Sound" panel (top right in development, or add `?controls` to the URL), then use "Copy mix" and paste the result over `MIX` in `config.js` to keep it.
+
 ## Testing hooks
 
 In development, `window.__castle` exposes `{ world, journey, ui, renderer }` for automated journey tests. It is stripped from production builds.
@@ -73,5 +81,5 @@ In development, `window.__castle` exposes `{ world, journey, ui, renderer }` for
 
 - The post chain (edge blur, bloom on high only, tone mapping) runs on every tier; MSAA is 4/2/0.
 - No dynamic shadows on any tier. The pooled lantern lights (8/6/4) plus emissive paper carry the lighting.
-- Ambience and effects (gate doors, guttering lanterns, architecture transforming, biwa, footsteps) are synthesised. Background music is the first file found in `config.js → AUDIO.musicUrls` (currently the track in `public/assets/infinity-castle/music/`), at `musicVolume`. Music and sound have separate HUD toggles; with both off, the audio context is suspended. It loops quietly while sound is on, and the generated layers duck under it. If the file is missing, the ambience plays alone.
+- All audio (gate doors, guttering lanterns, architecture transforming, biwa, footsteps, crows) is synthesised; there is no background music. With sound off, the audio context is suspended.
 - The reduced-motion preference removes roll, sway, FOV kick and look-back exaggeration, and limits gravity twists to 90°. The paths themselves still turn.

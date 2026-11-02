@@ -138,7 +138,7 @@ function createAtmosphere(quality) {
     },
     update(state, delta, pixelRatio) {
       const dt = Math.min(delta, 1 / 20);
-      fog.density += (journey.fogTarget - fog.density) * (1 - Math.exp(-dt * FOG.smoothing));
+      fog.density += (journey.fogTarget * FOG.scale - fog.density) * (1 - Math.exp(-dt * FOG.smoothing));
       journey.fogDensity = fog.density;
       for (const p of [dust, far]) {
         const u = p.material.uniforms;

@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { Path, catmull, line, orientAuto } from "../path";
-import { EYE, MID_SET, V, scatterAlong } from "./common";
+import { EYE, MID_SET, V, scatterAlong, underBridge } from "./common";
 
 /**
  * A walkway that simply ends — broken railing, snapped beam — and a short
- * fall onto a balcony 24 m below. Also the generator's escape hatch: when no
+ * fall onto a bridge 26 m below. Also the generator's escape hatch: when no
  * other chunk fits without overlapping, the castle drops you somewhere else.
  */
 const dropChunk = {
@@ -13,7 +13,9 @@ const dropChunk = {
     b.place("IC07_Bridge_Straight", { p: [0, 0, 0] });
     b.dress("IC20_Railing_Fragment", { p: [1.3, 0, -3.7], r: [0, 0.3, 0.2] }, { essential: true, force: true });
     b.dress("IC20_Broken_Beam", { p: [-1.1, -0.35, -4.1], r: [0.1, -0.5, -0.25] }, { essential: true, force: true });
-    b.place("IC08_Balcony_Square_Through", { p: [0, -26, -16] });
+    b.place("IC07_Bridge_Straight", { p: [0, -26, -12] });
+    b.place("IC07_Bridge_Straight_Lantern", { p: [0, -26, -16] });
+    underBridge(b, -12, -20, -26);
 
     const path = new Path([
       line([0, EYE, 0], [0, EYE, -3.6], { pace: 0.9, clear: 0.5 }),
@@ -41,7 +43,7 @@ const dropChunk = {
       region: (s) => (s < 4 ? "walkway" : "drop"),
       fog: 0.016,
       voidness: 0.9,
-      drift: (s) => (s > 5 && s < path.length - 3 ? 1 : 0),
+      drift: (s) => (s > 3.4 && s < path.length - 3 ? 1 : 0),
     });
   },
 };

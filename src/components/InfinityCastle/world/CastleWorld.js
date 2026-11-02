@@ -19,8 +19,9 @@ import { createRng, hashSeed } from "./rng";
  *   ensureAhead()  builds chunks along the intended route until 70 m of path
  *                  exist ahead; branching nodes near the camera get a preview
  *                  chunk on every exit, so every visible way on is real
- *   advance()      moves s, commits branches at decision points, hands over
- *                  between nodes in either direction
+ *   advance()      moves s, commits branches at decision points (and re-opens
+ *                  the choice if you back up past one), hands over between
+ *                  nodes in either direction
  *   clearDressing  a new chunk's void dressing (and the sweep of anything that
  *                  moves) may not cross an existing chunk's paths, nor theirs
  *                  its paths: offending pieces are removed, so you never walk
@@ -43,6 +44,7 @@ const _m = new THREE.Matrix4();
 const _m2 = new THREE.Matrix4();
 const _box3 = new THREE.Box3();
 const X = new THREE.Vector3(1, 0, 0);
+const UNDECIDE = 0.6; // m back before a decision point to have the choice again
 const Y = new THREE.Vector3(0, 1, 0);
 
 export class CastleWorld {
@@ -165,6 +167,7 @@ export class CastleWorld {
       boxes,
       broad,
       soft: (chunk.softParts || []).map((sp) => ({ mesh: sp.mesh, box: sp.box.clone().applyMatrix4(g.matrixWorld) })),
+      parts: chunk.parts.map((b) => b.clone().applyMatrix4(g.matrixWorld)),
       matrix: new THREE.Matrix4(),
       inv: new THREE.Matrix4(),
       anchorsWorld: [],
@@ -178,6 +181,7 @@ export class CastleWorld {
     this.indexNode(node);
     this.clearDressing(node);
     this.nodes.add(node);
+    this.obstacleList = null;
     return node;
   }
 
@@ -296,6 +300,7 @@ export class CastleWorld {
   removeNode(node) {
     node.chunk.dispose(this.registry);
     this.nodes.delete(node);
+    this.obstacleList = null;
     if (node.parent && node.parent.children[node.parentDir] === node) delete node.parent.children[node.parentDir];
     for (const c of Object.values(node.children)) if (c && c.parent === node) c.parent = null;
     if (this.prefTarget === node) this.prefTarget = null;
@@ -354,6 +359,14 @@ export class CastleWorld {
     }
   }
 
+  /** You backed up before the decision: every way on is open again (the one you had picked stays selected). */
+  uncommit(node) {
+    const dir = node.chosen;
+    node.chosen = null;
+    this.preference = dir;
+    node.chunk.onUncommit?.(dir);
+  }
+
   enter(next) {
     this.current = next;
     journey.chunkCount++;
@@ -388,6 +401,7 @@ export class CastleWorld {
         break;
       }
       if (this.isBranching(node) && !node.chosen && this.s >= node.chunk.decisionS) this.commit(node, this.intendedDir(node));
+      else if (node.chosen && this.isBranching(node) && this.s < node.chunk.decisionS - UNDECIDE) this.uncommit(node);
       const path = this.pathOf(node);
       if (this.s > path.length) {
         const dir = this.intendedDir(node);
@@ -563,7 +577,8 @@ export class CastleWorld {
   updateGait(dt, vy) {
     const speed = journey.speed;
     const steep = Math.abs(vy) > Math.max(speed, 0.5) * 0.8; // gliding / climbing through the void, not walking
-    const grounded = !this.falling && this.landingT <= 0 && !steep;
+    const airborne = this.current.chunk.airborne?.(this.s, this.intendedDir(this.current));
+    const grounded = !this.falling && this.landingT <= 0 && !steep && !airborne;
     const k = 1 - Math.exp(-dt * 5);
     journey.gait += ((grounded ? THREE.MathUtils.clamp(speed / 1.6, 0, 1) : 0) - journey.gait) * k;
     journey.run += (THREE.MathUtils.clamp((speed - GAIT.runFrom) / (GAIT.runFull - GAIT.runFrom), 0, 1) - journey.run) * k;
@@ -654,7 +669,11 @@ export class CastleWorld {
   prune(camera) {
     const keep = new Set();
     let a = this.current;
-    for (let k = 0; a && k <= WORLD.keepBehind; k++, a = a.parent) keep.add(a);
+    for (let k = 0; a && k <= WORLD.keepBehind; k++, a = a.parent) {
+      keep.add(a);
+      // the ways you didn't take at the last junction: still there if you back up to it
+      if (k <= 1) for (const c of Object.values(a.children)) if (c) keep.add(c);
+    }
     const walk = (n, d) => {
       keep.add(n);
       if (d >= WORLD.maxDepthAhead + 1) return;
@@ -679,6 +698,7 @@ export class CastleWorld {
       _v.copy(off).negate();
       for (const b of n.boxes) b.translate(_v); // boxes[0] is worldBox
       for (const sp of n.soft) sp.box.translate(_v);
+      for (const b of n.parts) b.translate(_v);
       n.broad.translate(_v);
       for (const pt of n.pathPts) pt.add(_v);
       n.pathBox.translate(_v);
@@ -686,11 +706,23 @@ export class CastleWorld {
     }
     p.sub(off);
     this.prevY -= off.y;
+    this.obstacleList = null;
     if (camera) {
       camera.position.sub(off);
       camera.updateMatrixWorld();
     }
     for (const fn of this.rebaseListeners) fn(off);
+  }
+
+  /** World-space boxes of everything solid — structure and the dressing still standing — for things that fly. */
+  obstacles() {
+    if (this.obstacleList) return this.obstacleList;
+    const list = [];
+    for (const n of this.nodes) {
+      list.push(...n.parts);
+      for (const d of n.chunk.dressing) if (!d.hidden) list.push(d.region.clone().applyMatrix4(n.matrix));
+    }
+    return (this.obstacleList = list);
   }
 
   /** Visit every lantern anchor in world space. */

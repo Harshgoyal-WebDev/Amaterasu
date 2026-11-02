@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useThree } from "@react-three/fiber";
+import { Raycaster } from "three";
 import { useGLTF } from "@react-three/drei";
 import { ASSET_BASE } from "../config";
 import { ASSET_URLS } from "../assets/manifest";
@@ -52,7 +53,7 @@ export default function CastleScene({ quality, lights, input, reducedMotion, onR
     world.start(width / Math.max(1, height));
     syncCamera(camera);
     // dev-only handle for automated journey tests
-    if (process.env.NODE_ENV !== "production") window.__castle = { world, journey, ui: uiStore, renderer: gl, camera };
+    if (process.env.NODE_ENV !== "production") window.__castle = { world, journey, ui: uiStore, renderer: gl, camera, Raycaster };
     const compile = gl.compileAsync ? gl.compileAsync(scene, camera) : Promise.resolve(gl.compile(scene, camera));
     compile
       .catch(() => {})

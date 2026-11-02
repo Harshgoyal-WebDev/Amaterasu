@@ -72,8 +72,7 @@ export default function Hud({ input, touch }) {
       </div>
 
       <div className="absolute flex flex-col items-end gap-0 md:flex-row md:items-center md:gap-3" style={{ bottom: "max(16px, env(safe-area-inset-bottom))", right: "max(14px, env(safe-area-inset-right))" }}>
-        <SoundToggle channel="music" />
-        <SoundToggle channel="sound" />
+        <SoundToggle />
       </div>
 
       {/* junction: the ways on */}

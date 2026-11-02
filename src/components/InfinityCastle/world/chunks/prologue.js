@@ -26,6 +26,8 @@ const LAND = V(-33, -164, -27);
 
 export const PROLOGUE_START_Z = { landscape: 14, portrait: 21 };
 const APPROACH_FROM = 26;
+const TURN_ROUND = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+const _box = new THREE.Box3();
 
 function helixPos(u, out) {
   const phi = TURN * u;
@@ -97,16 +99,30 @@ const prologueChunk = {
 
     // ── architecture ───────────────────────────────────────────────────
     for (let z = APPROACH_FROM + 2; z > 4; z -= 4) b.place("IC07_Bridge_Straight", { p: [0, 0, z] }, { lights: false });
+    b.place("IC07_Bridge_Straight", { p: [0, 0, 4], s: [1, 1, 0.42] }, { lights: false }); // the step up to the gate's sill
     underBridge(b, APPROACH_FROM + 2, 4);
 
     const gate = b.place("IC01_EntranceGateway", { p: [0, 0, 0] }, { lightPower: 1.25 });
-    const setGate = (k) => {
-      for (const key of ["Door_L", "Door_R"]) {
-        const mv = gate.movables[key];
-        if (!mv) continue;
-        const { slide_open_x: open, slide_closed_x: closed } = mv.extras;
-        mv.object.position.x = THREE.MathUtils.lerp(closed, open, k);
+    // The leaves' lattice is on their inner face: turn each leaf round so it faces
+    // the approach. The slide_*_x extras give the leaf's left edge, and the web
+    // export recentred the leaf origins, so place each leaf by its measured edge.
+    const leaves = ["Door_L", "Door_R"].flatMap((key) => {
+      const mv = gate.movables[key];
+      if (!mv) return [];
+      const o = mv.object;
+      o.userData.baseQ ??= o.quaternion.clone(); // pooled: never turn twice
+      o.quaternion.copy(o.userData.baseQ).premultiply(TURN_ROUND);
+      o.position.x = 0;
+      o.updateMatrix();
+      const box = new THREE.Box3();
+      for (const m of o.children) {
+        m.geometry.computeBoundingBox();
+        box.union(_box.copy(m.geometry.boundingBox).applyMatrix4(o.matrix));
       }
+      return [{ o, edge: -box.min.x, closed: mv.extras.slide_closed_x, open: mv.extras.slide_open_x }];
+    });
+    const setGate = (k) => {
+      for (const l of leaves) l.o.position.x = THREE.MathUtils.lerp(l.closed, l.open, k) + l.edge;
     };
     setGate(0);
 

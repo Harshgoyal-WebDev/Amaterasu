@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Path, catmull, line, orientAuto, smoothstep } from "../path";
-import { EYE, FAR_SET, FG_SET, MID_SET, V, gateSounds, glowCard, scatterRing, underBridge } from "./common";
+import { EYE, FAR_SET, FG_SET, MID_SET, V, gateSounds, glowCard, leafCenter, scatterRing, underBridge } from "./common";
 
 /**
  * STAGE 12 — the false exit. A corridor that narrows and darkens towards a
@@ -44,9 +44,9 @@ const falseExitChunk = {
     b.anchor(V(0, 1.7, DOOR_Z + 2.5), 1.2);
 
     const leaves = Object.entries(door.movables).map(([key, mv]) => {
-      // leaf origin is its left edge; open = slide away from the centre
+      // open = slide away from the centre
       const w = mv.extras.slide_distance ?? 1.2;
-      const center = mv.base.x + (mv.axis.x * w) / 2;
+      const center = leafCenter(mv).x;
       return { key, dir: center < 0 ? -1 : 1, w, axisSign: mv.axis.x >= 0 ? 1 : -1 };
     });
 
@@ -59,8 +59,8 @@ const falseExitChunk = {
       b.dress("IC20_Railing_Fragment", { p: [1.25, 0, EDGE_Z - 0.2], r: [0, 0.3, 0.25] }, { essential: true, force: true });
       b.dress("IC20_Broken_Beam", { p: [-1.1, -0.35, EDGE_Z - 0.5], r: [0.1, -0.5, -0.25] }, { essential: true, force: true });
       // the landing far below
-      for (let z = LAND_Z + 4; z > LAND_END_Z + 0.1; z -= 4) b.place("IC07_Bridge_Straight_Lantern", { p: [0, -FALL, z] });
-      underBridge(b, LAND_Z + 4, LAND_END_Z, -FALL);
+      for (let z = LAND_Z + 8; z > LAND_END_Z + 0.1; z -= 4) b.place("IC07_Bridge_Straight_Lantern", { p: [0, -FALL, z] });
+      underBridge(b, LAND_Z + 8, LAND_END_Z, -FALL);
 
       const y = -FALL + EYE;
       path = new Path([
@@ -82,7 +82,7 @@ const falseExitChunk = {
         ),
       ]);
       fallStart = path.sAtZ(EDGE_Z - 0.6);
-      const landIdx = path.p.findIndex((p) => p.y < y + 0.6);
+      const landIdx = path.p.findIndex((p) => p.y < y + 0.3);
       fallEnd = path.s[landIdx > 0 ? landIdx : path.p.length - 1];
 
       // the castle all around the drop
@@ -111,10 +111,10 @@ const falseExitChunk = {
     return b.finalize({
       type: "falseExit",
       exits: { forward: { frame: { p: V(0, end.y - EYE, end.z), q: new THREE.Quaternion() }, path } },
-      region: (s) => (s < fallStart - 1 ? "exit" : s < fallEnd - 4 ? "fall" : "walkway"),
+      region: (s) => (s < fallStart - 1 ? "exit" : s < fallEnd - 1 ? "fall" : "walkway"),
       fog: (s) => (s < fallStart - 2 ? 0.027 : 0.012),
       voidness: (s) => (s < fallStart - 2 ? 0 : 0.9),
-      drift: falls ? (s) => (s > fallStart && s < fallEnd - 3 ? 1.1 : 0) : null,
+      drift: falls ? (s) => (s > fallStart && s < fallEnd ? 1.1 : 0) : null,
     });
   },
 };

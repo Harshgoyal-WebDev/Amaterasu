@@ -69,7 +69,6 @@ export const uiStore = createStore({
   hintsSeen: false,
   paper: true, // the summons letter is open (input waits until it's dismissed)
   soundOn: false, // ambience + effects
-  musicOn: false, // the background track
   quality: "high",
   error: null,
 });

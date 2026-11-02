@@ -92,6 +92,7 @@ export class ChunkBuilder {
     this.bounds = new THREE.Box3();
     this.solids = []; // extra fine-grained occupancy boxes (large clusters)
     this.softParts = []; // cluster cells that may be hidden to make room
+    this.parts = []; // a box per solid piece of structure (what flying things steer round)
     this.dressItems = new Map();
     this.ownObjects = [];
     this.avoidPoints = [];
@@ -126,6 +127,11 @@ export class ChunkBuilder {
       for (const a of inst.prefab.anchors) this.anchors.push({ p: a.clone().applyMatrix4(mw), power: opts.lightPower ?? 1 });
     }
     if (opts.bounds !== false) this.bounds.union(_box.copy(inst.prefab.bounds).applyMatrix4(mw));
+    if (opts.bounds !== false || opts.solids) {
+      const { prefab } = inst;
+      const boxes = prefab.solids.length ? [...prefab.solids, ...prefab.parts.filter((p) => p.soft).map((p) => p.geometry.boundingBox)] : [prefab.bounds];
+      for (const box of boxes) this.parts.push(box.clone().applyMatrix4(mw));
+    }
     if (opts.solids) {
       for (const box of inst.prefab.solids) this.solids.push(box.clone().applyMatrix4(mw));
       for (const mesh of inst.soft) this.softParts.push({ mesh, box: mesh.geometry.boundingBox.clone().applyMatrix4(mw) });
@@ -276,10 +282,12 @@ export class ChunkBuilder {
       bounds,
       solids: this.solids,
       softParts: this.softParts,
+      parts: this.parts,
       region: def.region || (() => def.type),
       fog: def.fog ?? null,
       voidness: def.voidness ?? 0.3,
       drift: def.drift || null,
+      airborne: def.airborne || null, // (s, dir) → true where the path leaves the floor without falling (no footsteps)
       blackout: def.blackout || null,
       progress: def.progress || null,
       meta: def.meta || {},
@@ -295,6 +303,7 @@ export class ChunkBuilder {
         d.mover?.disable();
       },
       onCommit: def.onCommit || null,
+      onUncommit: def.onUncommit || null,
       onSeal: def.onSeal || null,
       onEnter: def.onEnter || null,
       update(ctx) {

@@ -1,5 +1,4 @@
-import * as THREE from "three";
-import { Path, arc, catmull, line, orientAuto, segment, smoothstep, yawQuat } from "../path";
+import { Path, arc, catmull, line, orientAuto, yawQuat } from "../path";
 import { EYE, FAR_SET, FG_SET, HALF_PI, MID_SET, V, YAW, scatterRing, underBridge } from "./common";
 
 /**
@@ -7,10 +6,10 @@ import { EYE, FAR_SET, FG_SET, HALF_PI, MID_SET, V, YAW, scatterRing, underBridg
  *
  * The cluster's core (|x|,|z| < 11 m) is clear at every height, ringed by
  * eight lattice towers at ±16 m. The camera arrives on a small bridge through
- * the gap between two towers (cluster x = 7, y = 20), glides out over the
- * core, spirals down one full turn, and lands on a cross of bridges at
- * cluster (7, 0, -7). From there every way on is a dive — straight down past
- * the towers, below the whole cluster (y < -63), then out.
+ * the gap between two towers (cluster x = 7, y = 20); the bridge breaks off
+ * over the core and you fall 20 m onto a cross of bridges at cluster
+ * (7, 0, -7). From there every way on is a dive — straight down past the
+ * towers, below the whole cluster (y < -63), onto a bridge, then out.
  *
  * Cluster coordinates c map to chunk-local c + O.
  */
@@ -24,11 +23,13 @@ const abyssChunk = {
   build(b) {
     b.place("IC12_Central_Abyss_Cluster", { p: O }, { bounds: false, solids: true, lightPower: 1 });
 
-    // entry bridge through the tower gap
+    // entry bridge through the tower gap, snapped off over the core
     b.place("IC07_Bridge_Straight_Lantern", { p: [0, 0, 0] });
     b.place("IC07_Bridge_Straight", { p: [0, 0, -4] });
     b.place("IC07_Bridge_Straight", { p: [0, 0, -8] });
     underBridge(b, 0, -12);
+    b.dress("IC20_Railing_Fragment", { p: [1.3, 0, -11.7], r: [0, 0.3, 0.2] }, { essential: true, force: true });
+    b.dress("IC20_Broken_Beam", { p: [-1.1, -0.35, -12.1], r: [0.1, -0.5, -0.25] }, { essential: true, force: true });
     // the cross of bridges at the heart of the core
     const deck = O.y;
     b.place("IC07_Bridge_Straight", { p: [0, deck, -21] });
@@ -41,21 +42,27 @@ const abyssChunk = {
     underBridge(b, -21, -37, deck);
 
     // ── paths ──
-    const entry = line([0, EYE, 0], [0, EYE, -12], { pace: 1, clear: 0.6 });
-    const glide = line([0, EYE, -12], [0, 1.2, -24], { pace: 0.7, clear: 0.4 });
-    const P = new THREE.Vector3();
-    const yTop = 1.2;
     const yDeck = deck + EYE;
-    const spiral = segment(
-      (t) => {
-        const phi = -2 * Math.PI * t;
-        return P.set(O.x + 7 * Math.cos(phi), THREE.MathUtils.lerp(yTop, yDeck, smoothstep(0, 1, t)), O.z + 7 * Math.sin(phi));
-      },
-      { pace: 1.45, clear: 0.6, orient: orientAuto({ pitchScale: 0.5, pitch: (t) => -0.28 * Math.sin(Math.PI * t), roll: (t) => 0.07 * Math.sin(Math.PI * t) }) },
+    const entry = line([0, EYE, 0], [0, EYE, -11.6], { pace: 1, clear: 0.6 });
+    // off the end of the bridge, down onto the deck
+    const fall = catmull(
+      [
+        [0, EYE, -11.6],
+        [0, EYE - 0.3, -13],
+        [0, -2, -14.6],
+        [0, -8, -16.6],
+        [0, -14, -19],
+        [0, yDeck - 0.6, -21.6],
+        [0, yDeck, -23.4],
+        [0, yDeck, -25.5],
+      ],
+      { pace: [1.2, 1.8], clear: 0, orient: orientAuto({ pitchScale: 0.6, maxPitch: 1.1 }) },
     );
-    const onArm = line([0, yDeck, -24], [0, yDeck, -29.6], { pace: 0.75, clear: 0.6 });
-    const shared = [entry, glide, spiral, onArm];
-    const decisionS = new Path(shared).length - 0.05;
+    const onArm = line([0, yDeck, -25.5], [0, yDeck, -29.6], { pace: 0.75, clear: [0.3, 0.6] });
+    const shared = [entry, fall, onArm];
+    const sharedPath = new Path(shared);
+    const decisionS = sharedPath.length - 0.05;
+    const firstFall = [sharedPath.s[sharedPath.p.findIndex((p) => p.z < -11.9)], sharedPath.s[sharedPath.p.findIndex((p) => p.y < yDeck + 0.3)]];
     const dive = (points) => catmull(points, { pace: [1.6, 2.8], clear: 0, orient: orientAuto({ pitchScale: 0.62, maxPitch: 1.15 }) });
     const yOut = -70 + O.y + EYE;
 
@@ -111,12 +118,26 @@ const abyssChunk = {
       };
     }
 
-    // each dive is a fall until it levels out at the bottom
+    // the bridges each dive lands on
+    const yFloor = O.y - 70;
+    for (let i = 0; i < 4; i++) {
+      const name = i % 2 ? "IC07_Bridge_Straight_Lantern" : "IC07_Bridge_Straight";
+      b.place(name, { p: [0, yFloor, -48 - 4 * i] });
+      b.place(name, { p: [24 + 4 * i, yFloor, -31], ry: -HALF_PI });
+      b.place(name, { p: [-24 - 4 * i, yFloor, -31], ry: HALF_PI });
+    }
+    underBridge(b, -48, -64, yFloor);
+
+    // each dive is a fall from the moment you step off the deck until it levels out at the bottom
+    const fallStart = {};
     const fallEnd = {};
     for (const [dir, e] of Object.entries(exits)) {
-      let i = e.path.p.length - 1;
-      while (i > 0 && e.path.p[i].y < yOut + 1) i--;
+      const pts = e.path.p;
+      let i = pts.length - 1;
+      while (i > 0 && pts[i].y < yOut + 1) i--;
       fallEnd[dir] = e.path.s[i];
+      const j = pts.findIndex((p, k) => e.path.s[k] > decisionS && p.y < yDeck - 0.05);
+      fallStart[dir] = e.path.s[Math.max(0, j)] - 0.6;
     }
 
     // ── the world beyond the cluster: reusable modules keep it going ──
@@ -134,7 +155,7 @@ const abyssChunk = {
       region: () => "abyss",
       fog: 0.0085,
       voidness: 1,
-      drift: (s, dir) => (s > decisionS + 9 && s < (fallEnd[dir] ?? Infinity) ? 1.1 : 0),
+      drift: (s, dir) => ((s > firstFall[0] && s < firstFall[1]) || (s > (fallStart[dir] ?? Infinity) && s < (fallEnd[dir] ?? Infinity)) ? 1.1 : 0),
     });
   },
 };

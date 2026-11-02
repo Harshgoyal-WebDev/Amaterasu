@@ -15,28 +15,18 @@
  *   grind       a moving piece, for as long as it moves: stone dragged over
  *               rough stone (stick-slip), timber runners rattling in their
  *               grooves like a heavy drawer, a knock as it starts and settles
- *   crow        a caw (harsh, nasal, falling) — panned to where the bird is;
+ *   crow        a recorded caw (AUDIO.crowUrls), pitched down — panned to where the bird is;
  *               wingbeats when one passes close
  *   land        touching down after a fall
- *   music       optional file at AUDIO.musicUrls, looped quietly; the generated
- *               layers sit back while it plays (missing file → ignored)
  *
- * Two channels, switched separately: music, and sound (everything generated).
- * With both off the context is suspended, so it costs nothing.
+ * Switched on and off as one; off, the context is suspended, so it costs nothing.
  *
  * Everything shares one long convolution reverb whose send grows with how
  * open the space is. Create from a user gesture (autoplay rules); the camera
  * architecture never depends on it.
  */
 
-import { AUDIO } from "../config";
-
-// soft clip for the crow's voice
-const SHAPE = (() => {
-  const c = new Float32Array(1024);
-  for (let i = 0; i < c.length; i++) c[i] = Math.tanh(((i / (c.length - 1)) * 2 - 1) * 3.5);
-  return c;
-})();
+import { AUDIO, MIX } from "../config";
 
 const SCALE = [50, 51, 55, 57, 58, 62, 63, 67, 69]; // D Eb G A Bb (in-sen flavour)
 const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -91,7 +81,7 @@ export function createCastleAudio() {
   const ctx = new AudioContext();
   const master = ctx.createGain();
   master.gain.value = 0.9;
-  // everything but the music: switched as one
+  // everything: switched as one
   const sfx = new GainNode(ctx, { gain: 0 });
   sfx.connect(master);
   const comp = ctx.createDynamicsCompressor();
@@ -106,7 +96,7 @@ export function createCastleAudio() {
   const wet = ctx.createGain();
   wet.gain.value = 0.5;
   reverb.connect(wet).connect(sfx);
-  // generated layers share one bus so they can sit back while music plays
+  // the generated layers share one bus
   const ambience = new GainNode(ctx, { gain: 1 });
   ambience.connect(sfx);
   const send = (node, amount) => {
@@ -173,6 +163,7 @@ export function createCastleAudio() {
   }
 
   function biwa(intensity = 1) {
+    intensity *= MIX.biwa;
     const n = 1 + Math.floor(Math.random() * 2);
     for (let i = 0; i < n; i++) {
       const idx = Math.floor(Math.random() * plucks.length);
@@ -181,12 +172,13 @@ export function createCastleAudio() {
   }
 
   function creak(intensity = 1) {
-    const f = new BiquadFilterNode(ctx, { type: "bandpass", frequency: 500 + Math.random() * 900, Q: 18 });
+    intensity *= MIX.creak;
+    const f = new BiquadFilterNode(ctx, { type: "bandpass", frequency: 260 + Math.random() * 380, Q: 7 });
     const { src, g } = playBuffer(white, { gain: 0, rate: 0.5 + Math.random() * 0.3, pan: Math.random() * 1.4 - 0.7, filter: f });
     const t = ctx.currentTime;
     const dur = 0.25 + Math.random() * 0.5;
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.5 * intensity, t + 0.04);
+    g.gain.linearRampToValueAtTime(0.42 * intensity, t + 0.04);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     f.frequency.setValueAtTime(f.frequency.value, t);
     f.frequency.linearRampToValueAtTime(f.frequency.value * (0.7 + Math.random() * 0.6), t + dur);
@@ -194,6 +186,7 @@ export function createCastleAudio() {
   }
 
   function slide(intensity = 1) {
+    intensity *= MIX.door;
     const f = new BiquadFilterNode(ctx, { type: "lowpass", frequency: 1600 });
     const { src, g } = playBuffer(white, { gain: 0, pan: Math.random() * 0.6 - 0.3, filter: f });
     const t = ctx.currentTime;
@@ -234,6 +227,7 @@ export function createCastleAudio() {
 
   /** The gate's heavy cedar doors rolling in their tracks. */
   function gate(intensity = 1, closing = false) {
+    intensity *= MIX.gate;
     const len = closing ? 0.8 : 1.5;
     burst({ freq: 420, q: 0.9, gain: 0.32 * intensity, attack: 0.25, hold: len, release: 0.5, rate: 0.6, sweepTo: 260 });
     burst({ type: "bandpass", freq: 900, q: 3, gain: 0.07 * intensity, attack: 0.1, hold: len * 0.8, release: 0.4, rate: 0.8, pan: -0.3 });
@@ -244,14 +238,16 @@ export function createCastleAudio() {
 
   /** A lantern flame guttering: a soft draught and a few sputters. */
   function flicker(intensity = 1) {
+    intensity *= MIX.flicker;
     burst({ freq: 320, q: 0.6, gain: 0.12 * intensity, attack: 0.12, release: 0.6, rate: 0.7 });
     const n = 4 + Math.floor(Math.random() * 5);
     for (let i = 0; i < n; i++)
-      burst({ type: "bandpass", freq: 1400 + Math.random() * 2800, q: 6, gain: (0.05 + Math.random() * 0.06) * intensity, attack: 0.004, release: 0.04 + Math.random() * 0.06, delay: Math.random() * 0.9, pan: Math.random() * 0.6 - 0.3 });
+      burst({ type: "bandpass", freq: 600 + Math.random() * 900, q: 1.5, gain: (0.025 + Math.random() * 0.03) * intensity, attack: 0.004, release: 0.04 + Math.random() * 0.06, delay: Math.random() * 0.9, pan: Math.random() * 0.6 - 0.3 });
   }
 
   /** Architecture rearranging itself: timber groan, a deep rumble, beams settling. */
   function transform(intensity = 1) {
+    intensity *= MIX.transform;
     const t = ctx.currentTime;
     const o = new OscillatorNode(ctx, { type: "sawtooth", frequency: 74 + Math.random() * 20 });
     const bp = new BiquadFilterNode(ctx, { type: "bandpass", frequency: 320, Q: 4 });
@@ -272,19 +268,56 @@ export function createCastleAudio() {
     thump(0.4 * intensity, 1.9 + Math.random() * 0.5, 60, 34, 0.9);
   }
 
-  /** A footfall on cedar boards: heel thud, then the board's knock (left / right alternate). */
+  /**
+   * A footfall on cedar boards (left / right alternate): heel thud, the board's
+   * knock (low-passed — a resonant click on every stride rings like a bell), and
+   * now and then the board squeaking as it takes the weight.
+   */
   let foot = 1;
-  function step(intensity = 1) {
+  function step(run = 1) {
+    const intensity = run * MIX.steps;
     foot = -foot;
     const pan = foot * 0.16;
     const v = 0.85 + Math.random() * 0.3;
-    thump(0.2 * intensity * v, 0, 120 + Math.random() * 30, 55, 0.14);
-    burst({ freq: 600 + intensity * 500 + Math.random() * 300, q: 0.9, gain: 0.2 * intensity * v, attack: 0.003, release: 0.07 + 0.06 * intensity, rate: 0.7 + Math.random() * 0.4, pan });
-    burst({ type: "bandpass", freq: 1500 + Math.random() * 900, q: 2, gain: 0.05 * intensity * v, attack: 0.002, release: 0.05, delay: 0.045 + Math.random() * 0.03, pan });
-    if (Math.random() < 0.07) creak(0.22);
+    thump(0.22 * intensity * v, 0, 110 + Math.random() * 25, 50, 0.16);
+    burst({ freq: 280 + intensity * 160 + Math.random() * 80, q: 0.6, gain: 0.16 * intensity * v, attack: 0.006, release: 0.09 + 0.05 * intensity, rate: 0.5 + Math.random() * 0.2, pan });
+    burst({ freq: 750 + Math.random() * 250, q: 0.8, gain: 0.07 * intensity * v, attack: 0.002, release: 0.05, rate: 0.8, pan, delay: 0.02 });
+    // walking lets the boards talk; running mostly drowns them
+    if (Math.random() < MIX.squeakChance * (1 - 0.5 * run)) squeak(0.7 + Math.random() * 0.5, pan, 0.06 + Math.random() * 0.08);
+    else if (Math.random() < 0.06) creak(0.3);
+  }
+
+  /** A floorboard giving under a foot: stick-slip friction — a rough, stuttering whine, never a pure tone. */
+  function squeak(intensity = 1, pan = 0, delay = 0) {
+    intensity *= MIX.squeak;
+    const t = ctx.currentTime + delay;
+    const dur = 0.16 + Math.random() * 0.3;
+    const f = 190 + Math.random() * 170; // the stick-slip rate
+    const o = new OscillatorNode(ctx, { type: "sawtooth", frequency: f });
+    o.frequency.setValueAtTime(f, t);
+    o.frequency.linearRampToValueAtTime(f * (1.15 + Math.random() * 0.5), t + dur * 0.6);
+    o.frequency.linearRampToValueAtTime(f * (0.9 + Math.random() * 0.3), t + dur);
+    // the friction grabbing and slipping: the voice stutters
+    const grab = new OscillatorNode(ctx, { type: "square", frequency: 18 + Math.random() * 22 });
+    const grabDepth = new GainNode(ctx, { gain: 0.35 });
+    const voice = new GainNode(ctx, { gain: 0.65 });
+    grab.connect(grabDepth).connect(voice.gain);
+    const body = new BiquadFilterNode(ctx, { type: "bandpass", frequency: 700 + Math.random() * 500, Q: 3 });
+    const soft = new BiquadFilterNode(ctx, { type: "lowpass", frequency: 2200 });
+    const env = new GainNode(ctx, { gain: 0 });
+    o.connect(voice).connect(body).connect(soft).connect(env).connect(new StereoPannerNode(ctx, { pan })).connect(fx);
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.22 * intensity, t + 0.04);
+    env.gain.setValueAtTime(0.2 * intensity, t + dur * 0.7);
+    env.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    for (const n of [o, grab]) {
+      n.start(t);
+      n.stop(t + dur + 0.05);
+    }
   }
 
   function land(intensity = 1) {
+    intensity *= MIX.land;
     thump(0.75 * intensity, 0, 80, 32, 0.9);
     burst({ freq: 500, q: 0.7, gain: 0.4 * intensity, attack: 0.004, release: 0.35, rate: 0.6 });
     burst({ type: "bandpass", freq: 2200, q: 1.5, gain: 0.08 * intensity, attack: 0.003, release: 0.25, delay: 0.03 });
@@ -302,6 +335,7 @@ export function createCastleAudio() {
 
   let grinding = 0;
   function grind(intensity = 1, { duration = 6, pan = 0 } = {}) {
+    intensity *= MIX.grind;
     if (grinding >= 3) return; // a crowd of moving rooms is one wall of sound
     grinding++;
     setTimeout(() => grinding--, duration * 1000);
@@ -366,120 +400,47 @@ export function createCastleAudio() {
     if (Math.random() < 0.6) setTimeout(() => playing && creak(0.4 * intensity), duration * 400);
   }
 
-  /** A crow: two or three harsh, nasal caws, each falling in pitch. */
+  // crow calls: recordings (AUDIO.crowUrls), decoded once
+  const caws = [];
+  for (const url of AUDIO.crowUrls)
+    fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
+      .then((data) => ctx.decodeAudioData(data))
+      .then((buffer) => caws.push(buffer))
+      .catch(() => {});
+
+  /** A crow — a recorded caw, pitched down a little: a bigger, older bird. */
   function crow(intensity = 1, { pan = 0 } = {}) {
-    const p = new StereoPannerNode(ctx, { pan });
-    p.connect(fx);
-    const calls = 1 + Math.floor(Math.random() * 3);
-    const f0 = 470 + Math.random() * 160;
-    let t = ctx.currentTime + 0.02;
-    for (let i = 0; i < calls; i++) {
-      const dur = 0.24 + Math.random() * 0.14;
-      const f = f0 * (1 - i * 0.03);
-      const o = new OscillatorNode(ctx, { type: "sawtooth", frequency: f });
-      // the rasp: the voice fluttering ~60 times a second
-      const rasp = new OscillatorNode(ctx, { type: "square", frequency: 55 + Math.random() * 25 });
-      const raspDepth = new GainNode(ctx, { gain: 0.45 });
-      const voice = new GainNode(ctx, { gain: 0.55 });
-      rasp.connect(raspDepth).connect(voice.gain);
-      const shaper = new WaveShaperNode(ctx, { curve: SHAPE });
-      const f1 = new BiquadFilterNode(ctx, { type: "bandpass", frequency: 1250, Q: 2.2 });
-      const f2 = new BiquadFilterNode(ctx, { type: "bandpass", frequency: 2600, Q: 3 });
-      const f2g = new GainNode(ctx, { gain: 0.5 });
-      const env = new GainNode(ctx, { gain: 0 });
-      o.connect(voice).connect(shaper);
-      shaper.connect(f1).connect(env);
-      shaper.connect(f2).connect(f2g).connect(env);
-      env.connect(p);
-      o.frequency.setValueAtTime(f * 1.06, t);
-      o.frequency.exponentialRampToValueAtTime(f * 0.72, t + dur);
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(0.16 * intensity, t + 0.03);
-      env.gain.setValueAtTime(0.14 * intensity, t + dur * 0.6);
-      env.gain.exponentialRampToValueAtTime(0.0008, t + dur);
-      for (const n of [o, rasp]) {
-        n.start(t);
-        n.stop(t + dur + 0.05);
-      }
-      t += dur + 0.12 + Math.random() * 0.16;
-    }
+    if (!caws.length) return;
+    const buffer = caws[Math.floor(Math.random() * caws.length)];
+    const rate = (0.8 + Math.random() * 0.14) * MIX.crowPitch;
+    playBuffer(buffer, { gain: 0.55 * intensity * MIX.crow, rate, pan });
   }
 
   /** Wingbeats of a bird passing close. */
   function wings(intensity = 1, { pan = 0 } = {}) {
+    intensity *= MIX.wings;
     const n = 3 + Math.floor(Math.random() * 3);
     for (let i = 0; i < n; i++) burst({ freq: 420, q: 0.6, gain: 0.12 * intensity, attack: 0.04, release: 0.12, rate: 0.6, pan, delay: i * 0.17 });
   }
 
-  // optional background music (a file the site owner provides)
-  const musicGain = new GainNode(ctx, { gain: 0 });
-  musicGain.connect(master);
-  let music = null;
-  let musicIndex = 0;
-  let musicOk = AUDIO.musicUrls.length > 0;
-  let wantMusic = false;
-  function startMusic() {
-    wantMusic = true;
-    if (!musicOk) return;
-    if (!music) {
-      music = new Audio(AUDIO.musicUrls[musicIndex]);
-      music.loop = true;
-      music.preload = "auto";
-      music.addEventListener("error", () => {
-        // try the next format; give up quietly when none exists
-        musicIndex++;
-        if (musicIndex >= AUDIO.musicUrls.length) {
-          musicOk = false;
-          ambience.gain.setTargetAtTime(1, ctx.currentTime, 1);
-          return;
-        }
-        music.src = AUDIO.musicUrls[musicIndex];
-        if (wantMusic) playMusic();
-      });
-      ctx.createMediaElementSource(music).connect(musicGain);
-    }
-    playMusic();
-  }
-  function playMusic() {
-    music
-      .play()
-      .then(() => {
-        if (!wantMusic) return music.pause();
-        musicGain.gain.setTargetAtTime(AUDIO.musicVolume, ctx.currentTime, 2.5);
-        ambience.gain.setTargetAtTime(AUDIO.ambienceWithMusic, ctx.currentTime, 2.5);
-      })
-      .catch(() => {});
-  }
-  function stopMusic() {
-    wantMusic = false;
-    musicGain.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
-    ambience.gain.setTargetAtTime(1, ctx.currentTime, 1.5);
-    setTimeout(() => !wantMusic && music?.pause(), 1200);
-  }
-
-  let playing = false; // the sound channel
+  let playing = false;
   let nextCreak = 0;
   let nextBiwa = 0;
   let idle = null;
 
-  // both channels off: let the context sleep (after the fades)
+  // off: let the context sleep (after the fade)
   const settle = () => {
     clearTimeout(idle);
-    if (playing || wantMusic) {
+    if (playing) {
       if (ctx.state === "suspended") ctx.resume();
-    } else idle = setTimeout(() => !playing && !wantMusic && ctx.suspend(), 1500);
+    } else idle = setTimeout(() => !playing && ctx.suspend(), 1500);
   };
 
   return {
     analyser,
     get playing() {
       return playing;
-    },
-    /** Music on/off. Call from a click (autoplay rules). */
-    setMusic(on) {
-      if (on) startMusic();
-      else stopMusic();
-      settle();
     },
     /** Everything generated (ambience + effects) on/off. Call from a click. */
     setSound(on) {
@@ -497,10 +458,12 @@ export function createCastleAudio() {
       if (!playing) return;
       const t = ctx.currentTime;
       const w = Math.min(1, 0.04 + openness * 0.18 + fall * 0.9 + Math.min(speed / 30, 0.25));
-      windGain.gain.setTargetAtTime(w * 0.42, t, 0.3);
+      master.gain.setTargetAtTime(0.9 * MIX.master, t, 0.05);
+      drone.gain.setTargetAtTime(0.035 * MIX.drone, t, 0.3);
+      windGain.gain.setTargetAtTime(w * 0.21 * MIX.wind, t, 0.3);
       windBp.frequency.setTargetAtTime(380 + fall * 900 + openness * 120, t, 0.4);
-      wet.gain.setTargetAtTime(0.35 + openness * 0.45, t, 1);
-      roomGain.gain.setTargetAtTime(0.12 - openness * 0.06, t, 1);
+      wet.gain.setTargetAtTime((0.35 + openness * 0.45) * MIX.reverb, t, 1);
+      roomGain.gain.setTargetAtTime((0.12 - openness * 0.06) * MIX.room, t, 1);
       if (t > nextCreak) {
         creak(0.5 + (1 - openness) * 0.5);
         nextCreak = t + 5 + Math.random() * (openness > 0.5 ? 14 : 8);
@@ -520,6 +483,7 @@ export function createCastleAudio() {
       else if (type === "flicker") flicker(intensity);
       else if (type === "transform") transform(intensity);
       else if (type === "step") step(intensity);
+      else if (type === "squeak") squeak(intensity, extra.pan ?? 0);
       else if (type === "land") land(intensity);
       else if (type === "grind") grind(intensity, extra);
       else if (type === "crow") crow(intensity, extra);
@@ -527,11 +491,6 @@ export function createCastleAudio() {
     },
     dispose() {
       playing = false;
-      if (music) {
-        music.pause();
-        music.removeAttribute("src");
-        music.load();
-      }
       try {
         room.stop();
         wind.stop();

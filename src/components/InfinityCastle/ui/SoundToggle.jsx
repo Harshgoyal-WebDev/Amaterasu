@@ -1,23 +1,21 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { getSound, setMusic, setSound } from "../audio/sound";
+import { getSound, setSound } from "../audio/sound";
 import { journey } from "../state";
 import useUiStore from "./useStore";
 
 const BARS = 9;
 
 /**
- * One audio channel on/off: "sound" (ambience + effects) or "music" (the
- * background track). The Web Audio graph is created on the first click (no
- * autoplay — here or on the summons letter). The sound toggle also drives
- * the generated layers from the journey (wind with falling, reverb with open
+ * Sound on/off. The Web Audio graph is created on the first click (no
+ * autoplay — here or on the summons letter). The toggle also drives the
+ * generated layers from the journey (wind with falling, reverb with open
  * space) and plays the castle's events; they are drained even while muted
  * so nothing piles up.
  */
-export default function SoundToggle({ channel = "sound" }) {
-  const isSound = channel === "sound";
-  const on = useUiStore((s) => (isSound ? s.soundOn : s.musicOn));
+export default function SoundToggle() {
+  const on = useUiStore((s) => s.soundOn);
   const bars = useRef([]);
 
   useEffect(() => {
@@ -25,14 +23,12 @@ export default function SoundToggle({ channel = "sound" }) {
     let data;
     const tick = (ms) => {
       const a = getSound();
-      if (isSound) {
-        const events = journey.audioEvents;
-        if (a && on) {
-          a.update({ speed: journey.speed, fall: journey.fall, openness: journey.void, alive: journey.alive });
-          for (const e of events) a.trigger(e.type, e.intensity, e);
-        }
-        events.length = 0;
+      const events = journey.audioEvents;
+      if (a && on) {
+        a.update({ speed: journey.speed, fall: journey.fall, openness: journey.void, alive: journey.alive });
+        for (const e of events) a.trigger(e.type, e.intensity, e);
       }
+      events.length = 0;
       if (a && on) {
         data ??= new Uint8Array(a.analyser.fftSize);
         a.analyser.getByteTimeDomainData(data);
@@ -47,17 +43,15 @@ export default function SoundToggle({ channel = "sound" }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [on, isSound]);
+  }, [on]);
 
-  const toggle = () => (isSound ? setSound : setMusic)(!on);
-  const label = isSound ? "Sound" : "Music";
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={() => setSound(!on)}
       aria-pressed={on}
-      aria-label={on ? `Mute ${label.toLowerCase()}` : `Play ${label.toLowerCase()}`}
+      aria-label={on ? "Mute sound" : "Play sound"}
       className="ic-serif pointer-events-auto flex items-center gap-3 rounded-full px-2 py-2 text-[9px] uppercase tracking-[0.42em] text-[#f2e4cc]/55 transition-colors hover:text-[#f2e4cc]/90 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#ff9a3c]/60 md:text-[10px]"
     >
       <span className="flex h-4 items-center gap-[3px]" aria-hidden>
@@ -72,7 +66,7 @@ export default function SoundToggle({ channel = "sound" }) {
           />
         ))}
       </span>
-      {label} {on ? "on" : "off"}
+      Sound {on ? "on" : "off"}
     </button>
   );
 }

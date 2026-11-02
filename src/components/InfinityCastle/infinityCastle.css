@@ -68,6 +68,34 @@
   opacity: 0;
 }
 
+/* the loader: the castle assembling, then the way in */
+.ic-loader {
+  animation: ic-fade-in 1.4s ease-out backwards;
+}
+
+.ic-enter-castle {
+  padding: 0.85rem 2.2rem 0.75rem;
+  border: 1px solid rgba(255, 154, 60, 0.45);
+  color: rgba(242, 228, 204, 0.9);
+  font-size: 11px;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  background: radial-gradient(120% 160% at 50% 100%, rgba(255, 154, 60, 0.14), transparent 70%);
+  animation: ic-fade-in 1s ease-out backwards;
+  transition:
+    border-color 0.4s,
+    color 0.4s,
+    box-shadow 0.4s;
+}
+
+.ic-enter-castle:hover,
+.ic-enter-castle:focus-visible {
+  border-color: rgba(255, 154, 60, 0.9);
+  color: #fff3e2;
+  box-shadow: 0 0 28px rgba(255, 154, 60, 0.25);
+  outline: none;
+}
+
 /* the scroll: --ic-roll is how far it is unrolled (the bottom rod rides on it) */
 @property --ic-roll {
   syntax: "<percentage>";
@@ -220,7 +248,7 @@
   color: #f1dcc0;
   background: linear-gradient(180deg, #8e1a11, #5e0b07);
   font-size: 12px;
-  letter-spacing: 0.4em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   box-shadow:
     0 0 0 3px rgba(214, 191, 147, 0.9),
@@ -291,5 +319,32 @@
   }
   .is-closing .ic-letter {
     animation: ic-fade-out 0.6s ease-in forwards;
+  }
+}
+
+/* short screens (a phone with its browser bars showing): the letter tightens so it still fits without scrolling */
+@media (max-height: 720px) {
+  .ic-paper {
+    padding-top: 1.1rem;
+    padding-bottom: 1.1rem;
+  }
+  .ic-paper header .ic-jp {
+    font-size: 22px;
+  }
+  .ic-paper .ic-dropcap {
+    margin-top: 0.7rem;
+    font-size: 14px;
+    line-height: 1.42;
+  }
+  .ic-paper section {
+    margin-top: 0.8rem;
+  }
+  .ic-paper ul {
+    margin-top: 0.45rem;
+    row-gap: 0.3rem;
+    font-size: 13px;
+  }
+  .ic-paper > .mt-6 {
+    margin-top: 0.8rem;
   }
 }

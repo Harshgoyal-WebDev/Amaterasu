@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useProgress } from "@react-three/drei";
-import { setMusic, setSound } from "../audio/sound";
+import { setSound } from "../audio/sound";
 import { uiStore } from "../state";
 import useUiStore from "./useStore";
 
@@ -29,64 +29,46 @@ const EDGE = (() => {
 })();
 
 const DESKTOP_LAWS = [
-  [
-    ["Scroll", "W", "↑"],
-    "Walk deeper. Scroll harder and you will run — the castle does not mind.",
-  ],
-  [
-    ["Scroll back", "S", "↓"],
-    "Retreat the way you came, for as long as that way still exists.",
-  ],
-  [
-    ["←", "→", "A", "D"],
-    "Where the halls divide, choose your path. Choose quickly.",
-  ],
-  [["Q", "E"], "Descend or rise where stairwells and crossroads allow."],
-  [["Space"], "A single stride."],
-  [["Mouse"], "Turn your eyes. Something is always watching from the edges."],
+  [["Scroll", "W"], "Walk deeper — faster, and you run"],
+  [["S"], "Retreat, while the way still exists"],
+  [["←", "→"], "Choose your way where halls divide"],
+  [["Q", "E"], "Descend or rise at stairs"],
+  [["Mouse"], "Look around"],
 ];
 
 const TOUCH_LAWS = [
-  [["Swipe up"], "Walk deeper. Swipe harder and you will run."],
-  [
-    ["Swipe down"],
-    "Retreat the way you came, for as long as that way still exists.",
-  ],
-  [
-    ["Swipe ← →", "◁ ▷"],
-    "Where the halls divide, choose your path. Choose quickly.",
-  ],
-  [["△ ▽"], "Descend or rise where stairwells and crossroads allow."],
+  [["Swipe up"], "Walk deeper — faster, and you run"],
+  [["Swipe down"], "Retreat, while the way still exists"],
+  [["◁", "▷"], "Choose your way where halls divide"],
+  [["△", "▽"], "Descend or rise at stairs"],
 ];
 
 /**
- * The summons: an aged letter laid over the gate when the experience opens
- * (while the castle loads behind it). Lore, then the laws — the controls.
- * It unrolls between two rods on arrival and rolls back up when put away.
- * Movement waits until then; "Enter with sound" starts the audio
- * from the click itself.
+ * The opening: a loader while the castle assembles, then "Enter the castle".
+ * Entering unrolls the summons — a short letter between two rods: a little
+ * lore, the laws (controls). It rolls back up when accepted; movement waits
+ * until then. "Accept the summons" starts the audio from the click itself.
  */
 export default function SummonsLetter({ touch }) {
   const open = useUiStore((s) => s.paper);
   const phase = useUiStore((s) => s.phase);
   const error = useUiStore((s) => s.error);
   const { progress } = useProgress();
+  const [unrolled, setUnrolled] = useState(false);
   const [closing, setClosing] = useState(false);
   const enterBtn = useRef(null);
+  const acceptBtn = useRef(null);
   const ready = phase !== "loading";
 
   useEffect(() => {
-    if (ready && open) enterBtn.current?.focus({ preventScroll: true });
-  }, [ready, open]);
+    (unrolled ? acceptBtn : enterBtn).current?.focus({ preventScroll: true });
+  }, [ready, unrolled]);
 
   if (!open || error) return null; // a failed castle shows its still fallback instead
 
-  const enter = (withSound) => {
-    if (!ready || closing) return;
-    if (withSound) {
-      setSound(true);
-      setMusic(true);
-    }
+  const accept = (withSound) => {
+    if (closing) return;
+    if (withSound) setSound(true);
     setClosing(true);
     setTimeout(() => uiStore.set({ paper: false }), 1400);
   };
@@ -98,156 +80,99 @@ export default function SummonsLetter({ touch }) {
       className={`ic-letter-backdrop absolute inset-0 z-40 flex items-center justify-center px-4 py-5 md:py-8 ${closing ? "is-closing" : ""}`}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="ic-letter-title"
+      aria-labelledby={unrolled ? "ic-letter-title" : "ic-loader-title"}
     >
-      <div className="ic-letter relative w-full max-w-[680px]">
-        <span aria-hidden className="ic-rod ic-rod-top" />
-        <div className="ic-unroll">
-          <div
-            className="ic-paper ic-serif relative max-h-[86dvh] overflow-y-auto px-7 pb-9 pt-10 md:px-14 md:pb-12 md:pt-14"
-            style={{ clipPath: EDGE }}
-            data-ic-scroll
-          >
-            <span
-              aria-hidden
-              className="ic-jp ic-ink-red pointer-events-none absolute right-4 top-12 hidden text-[13px] leading-[1.9] tracking-[0.5em] opacity-70 md:block"
-              style={{ writingMode: "vertical-rl" }}
-            >
-              鬼の棲まう城　出口なし
-            </span>
-
-            <header className="text-center">
-              <p className="ic-jp ic-ink-red text-[30px] leading-none tracking-[0.35em] md:text-[40px]">
-                無限城
+      {!unrolled ? (
+        <div className="ic-loader ic-serif flex flex-col items-center text-center text-[#f2e4cc]">
+          <p className="ic-jp text-[34px] leading-none tracking-[0.4em] text-[#f2e4cc]/85 md:text-[44px]" aria-hidden>
+            無限城
+          </p>
+          <h2 id="ic-loader-title" className="mt-4 text-[11px] uppercase tracking-[0.6em] text-[#f2e4cc]/55 md:text-[12px]">
+            The Infinity Castle
+          </h2>
+          <span className="mt-9 block h-px w-48 overflow-hidden bg-[#f2e4cc]/10" aria-hidden>
+            <span className="block h-full bg-[#ff9a3c]/80 transition-[width] duration-500 ease-out" style={{ width: `${ready ? 100 : Math.max(4, progress)}%` }} />
+          </span>
+          <div className="mt-8 flex h-12 items-center">
+            {ready ? (
+              <button ref={enterBtn} type="button" onClick={() => setUnrolled(true)} className="ic-enter-castle">
+                Enter the castle
+              </button>
+            ) : (
+              <p className="text-[10px] uppercase tracking-[0.5em] text-[#f2e4cc]/45" aria-live="polite">
+                The castle assembles · {Math.round(progress)}%
               </p>
-              <h2
-                id="ic-letter-title"
-                className="mt-3 text-[12px] font-medium uppercase tracking-[0.55em] md:text-[13px]"
-              >
-                The Infinity Castle
-              </h2>
-              <p className="mt-2 text-[13px] italic opacity-75 md:text-[14px]">
-                a summons, written in a hand that is not human
-              </p>
-              <span
-                aria-hidden
-                className="ic-rule mx-auto mt-5 block h-px w-40"
-              />
-            </header>
-
-            <div className="ic-ink mt-6 space-y-4 text-[15.5px] leading-[1.62] md:text-[17px]">
-              <p className="ic-dropcap">
-                You did not find this place. It found you. Beneath the
-                floorboards of the waking world hangs a fortress with no floor
-                and no sky — the Infinity Castle, lair of the Demon King, where
-                the night never thins into morning.
-              </p>
-              <p>
-                Its halls fold upon themselves like paper crushed in a fist.
-                Stairs climb into ceilings; ceilings open onto chasms; corridors
-                run on long after they should have ended. A single string of the{" "}
-                <em>biwa</em> decides where you stand — when it sounds, rooms
-                are torn loose and set down elsewhere, doors become walls, and
-                the way you came is gone.
-              </p>
-              <p>
-                The lanterns burn, but not for you. They burn so that what
-                dwells in the dark may watch you come. No map survives a night
-                here. No one who has walked these halls has walked out of them.
-              </p>
-            </div>
-
-            <section className="mt-8" aria-labelledby="ic-laws">
-              <h3
-                id="ic-laws"
-                className="ic-ink-red text-center text-[11px] font-medium uppercase tracking-[0.6em] md:text-[12px]"
-              >
-                The Laws of the Castle{" "}
-                <span className="ic-jp ml-1 tracking-[0.3em]">掟</span>
-              </h3>
-              <ul className="ic-ink mt-4 space-y-2.5 text-[14.5px] leading-snug md:text-[15.5px]">
-                {laws.map(([keys, text]) => (
-                  <li
-                    key={text}
-                    className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4"
-                  >
-                    <span className="flex shrink-0 flex-wrap gap-1.5 sm:w-[168px] sm:justify-end">
-                      {keys.map((k) => (
-                        <kbd key={k} className="ic-key">
-                          {k}
-                        </kbd>
-                      ))}
-                    </span>
-                    <span>{text}</span>
-                  </li>
-                ))}
-                <li className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
-                  <span className="flex shrink-0 sm:w-[168px] sm:justify-end">
-                    <kbd className="ic-key ic-key-red">The Fall</kbd>
-                  </span>
-                  <span>
-                    When the floor gives way, you fall. Nothing you do will slow
-                    it. Do not scream; it only echoes.
-                  </span>
-                </li>
-              </ul>
-            </section>
-
-            <p className="ic-ink mt-8 text-center text-[15px] italic md:text-[16px]">
-              There is no exit. If you see one, it is lying.
-            </p>
-
-            <div className="relative mt-7 flex items-end justify-between gap-4">
-              <p className="ic-ink text-[13px] leading-snug opacity-80 md:text-[14px]">
-                — sealed by the will of the Demon King
-                <br />
-                <span className="ic-jp text-[12px] tracking-[0.3em]">
-                  鬼舞辻
-                </span>
-              </p>
-              <span
-                aria-hidden
-                className="ic-seal ic-jp grid h-16 w-16 shrink-0 place-items-center text-[30px] md:h-[76px] md:w-[76px] md:text-[36px]"
-              >
-                鬼
-              </span>
-            </div>
-
-            <div className="mt-8 flex flex-col items-center gap-3">
-              {ready ? (
-                <>
-                  <button
-                    ref={enterBtn}
-                    type="button"
-                    onClick={() => enter(true)}
-                    className="ic-enter"
-                  >
-                    Accept the summons
-                    <span className="mt-0.5 block text-[9px] tracking-[0.45em] opacity-70">
-                      with sound
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => enter(false)}
-                    className="text-[10px] uppercase tracking-[0.45em] underline-offset-4 opacity-70 transition-opacity hover:underline hover:opacity-100 focus-visible:underline focus-visible:outline-none"
-                  >
-                    Enter in silence
-                  </button>
-                </>
-              ) : (
-                <p
-                  className="text-[11px] uppercase tracking-[0.5em] opacity-70"
-                  aria-live="polite"
-                >
-                  The castle assembles · {Math.round(progress)}%
-                </p>
-              )}
-            </div>
+            )}
           </div>
         </div>
-        <span aria-hidden className="ic-rod ic-rod-bottom" />
-      </div>
+      ) : (
+        <div className="ic-letter relative w-full max-w-[600px]">
+          <span aria-hidden className="ic-rod ic-rod-top" />
+          <div className="ic-unroll">
+            <div className="ic-paper ic-serif relative max-h-[86dvh] overflow-y-auto px-7 pb-8 pt-8 md:px-12 md:pb-9 md:pt-10" style={{ clipPath: EDGE }} data-ic-scroll>
+              <header className="text-center">
+                <p className="ic-jp ic-ink-red text-[26px] leading-none tracking-[0.35em] md:text-[34px]">無限城</p>
+                <h2 id="ic-letter-title" className="mt-2.5 text-[11px] font-medium uppercase tracking-[0.55em] md:text-[12px]">
+                  The Infinity Castle
+                </h2>
+                <span aria-hidden className="ic-rule mx-auto mt-4 block h-px w-36" />
+              </header>
+
+              <p className="ic-ink ic-dropcap mt-5 text-[15px] leading-[1.55] md:text-[16px]">
+                You did not find this place. It found you. Beneath the waking world hangs the lair of the Demon King - halls that fold upon themselves, stairs that climb into ceilings, rooms torn loose at the sound of a <em>biwa</em>. No one who has walked here has walked out.
+              </p>
+
+              <section className="mt-6" aria-labelledby="ic-laws">
+                <h3 id="ic-laws" className="ic-ink-red text-center text-[10px] font-medium uppercase tracking-[0.6em] md:text-[11px]">
+                  The Laws <span className="ic-jp ml-1 tracking-[0.3em]">掟</span>
+                </h3>
+                <ul className="ic-ink mt-3 grid gap-x-6 gap-y-2 text-[13.5px] leading-snug sm:grid-cols-2 md:text-[14px]">
+                  {laws.map(([keys, text]) => (
+                    <li key={text} className="flex items-baseline gap-2.5">
+                      <span className="flex shrink-0 gap-1">
+                        {keys.map((k) => (
+                          <kbd key={k} className="ic-key">
+                            {k}
+                          </kbd>
+                        ))}
+                      </span>
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                  <li className="flex items-baseline gap-2.5">
+                    <kbd className="ic-key ic-key-red shrink-0">The Fall</kbd>
+                    <span>Nothing you do will slow it</span>
+                  </li>
+                </ul>
+              </section>
+
+              <div className="mt-6 flex items-center justify-between gap-4">
+                <p className="ic-ink text-[14px] italic leading-snug md:text-[15px]">
+                  There is no exit.
+                  <br />
+                  If you see one, it is lying.
+                </p>
+               
+              </div>
+
+              <div className="mt-6 flex flex-col items-center gap-3">
+                <button ref={acceptBtn} type="button" onClick={() => accept(true)} className="ic-enter cursor-pointer">
+                  Accept the summon
+                  <span className="mt-0.5 block text-[9px] tracking-[0.45em] opacity-70">with sound</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => accept(false)}
+                  className="text-[10px] uppercase tracking-[0.1em] underline-offset-4 opacity-70 cursor-pointer transition-opacity hover:underline hover:opacity-100 focus-visible:underline focus-visible:outline-none"
+                >
+                  Enter in silence
+                </button>
+              </div>
+            </div>
+          </div>
+          <span aria-hidden className="ic-rod ic-rod-bottom" />
+        </div>
+      )}
     </div>
   );
 }

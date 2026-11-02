@@ -119,6 +119,19 @@ export function glowCard(w, h, color, intensity = 4) {
   return mesh;
 }
 
+/**
+ * A leaf's centre (prefab space, base pose), measured from its geometry: the
+ * exports put leaf origins at the left edge, the web copies at the centre.
+ */
+export function leafCenter(mv) {
+  const box = new THREE.Box3();
+  for (const m of mv.object.children) {
+    m.geometry.computeBoundingBox();
+    box.union(m.geometry.boundingBox);
+  }
+  return box.getCenter(new THREE.Vector3()).multiply(mv.object.scale).applyQuaternion(mv.object.quaternion).add(mv.base);
+}
+
 /** Shoji door leaves: centre-based opening that works for every rotation / A-B variant. */
 export function doorController(inst, wallAxisOf) {
   // wallAxisOf(key) → unit Vector3 along the wall (in prefab space) and door centre
@@ -130,8 +143,7 @@ export function doorController(inst, wallAxisOf) {
     const along = mv.axis.clone();
     // leaf centre along the wall relative to the door centre
     const w = mv.extras.slide_distance ?? 1.2;
-    const leafCenter = mv.base.clone().addScaledVector(along, w / 2);
-    const c = leafCenter.clone().sub(info.center).dot(info.tangent);
+    const c = leafCenter(mv).sub(info.center).dot(info.tangent);
     const sign = Math.sign(c) || 1;
     // position (along tangent) of the closed and open centre
     const closed = sign * (w / 2);
